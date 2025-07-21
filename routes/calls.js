@@ -72,12 +72,6 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       description: callerInfo?.description || '',
       additionalInfo: callerInfo?.additionalInfo || '',
       deviceId: device.deviceId,
-      vehicleInfo: {
-        type: device.vehicle.type,
-        model: `${device.vehicle.make} ${device.vehicle.model}`,
-        plate: device.vehicle.plateNumber,
-        color: device.vehicle.color
-      },
       timestamp: new Date()
     };
 
@@ -92,11 +86,7 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       status: 'initiated',
       callerInfo: enhancedCallerInfo,
       deviceInfo: {
-        deviceId: device.deviceId,
-        vehicleType: device.vehicle.type,
-        vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-        plateNumber: device.vehicle.plateNumber,
-        vehicleColor: device.vehicle.color
+        deviceId: device.deviceId
       },
       anonymousCall: true,
       isEmergency: emergencyType !== 'general',
@@ -115,17 +105,9 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
     }
     await qrCode.save();
 
-    // Update device stats
-    device.stats.totalCalls += 1;
-    device.stats.lastCallDate = new Date();
-    if (emergencyType !== 'general') {
-      device.stats.emergencyCalls += 1;
-    }
-    await device.save();
-
     // Generate Agora tokens
-    const callerUID = `caller_${callId.substring(0, 8)}`;
-    const receiverUID = `owner_${qrCode.linkedTo.userId.substring(0, 8)}`;
+    const callerUID = `caller_${callId}`;
+    const receiverUID = `owner_${qrCode.linkedTo.userId}`;
     const callerToken = generateAgoraToken(channelName, callerUID);
     const receiverToken = generateAgoraToken(channelName, receiverUID);
 
@@ -134,15 +116,15 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
     const isHighUrgency = urgencyLevel === 'high' || urgencyLevel === 'critical';
 
     let notificationTitle = '📞 Vehicle Contact';
-    let notificationBody = `${callerInfo?.name || 'Someone'} wants to contact you about your ${device.vehicle.type}`;
+    let notificationBody = `${callerInfo?.name || 'Someone'} wants to contact you about your vehicle.`;
 
     if (isEmergency) {
       notificationTitle = urgencyLevel === 'critical' ? '🚨 CRITICAL EMERGENCY' : '⚠️ Emergency Call';
-      notificationBody = `URGENT: ${emergencyType.toUpperCase()} involving your ${device.vehicle.type} (${device.vehicle.plateNumber})`;
+      notificationBody = `URGENT: ${emergencyType.toUpperCase()} involving your vehicle.`;
     }
 
     // Enhanced push notification
-    const notificationData = {
+    let notificationData = {
       title: notificationTitle,
       body: notificationBody,
       data: {
@@ -152,13 +134,17 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
         callType,
         token: receiverToken,
         callerInfo: JSON.stringify(enhancedCallerInfo),
-        deviceInfo: JSON.stringify(call.deviceInfo),
+        deviceInfo: JSON.stringify({ deviceId: device.deviceId }),
         emergencyType,
         urgencyLevel,
         priority: isHighUrgency ? 'high' : 'normal',
         qrId
       }
     };
+    // Ensure all data values are strings
+    notificationData.data = Object.fromEntries(
+      Object.entries(notificationData.data).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
+    );
 
     // Send push notification to the receiver (vehicle owner)
     try {
@@ -184,10 +170,7 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
         avatar: ''
       },
       deviceInfo: {
-        vehicleType: device.vehicle.type,
-        vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-        plateNumber: qrCode.emergencyInfo.showVehiclePlate ? device.vehicle.plateNumber : 'Hidden',
-        color: device.vehicle.color
+        deviceId: device.deviceId
       },
       emergencyInfo: qrCode.emergencyInfo,
       callContext: {
@@ -212,7 +195,7 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
 router.post('/:callId/answer', auth, generalRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`✅ User ${userId} attempting to answer call ${callId}`);
 
@@ -236,7 +219,7 @@ router.post('/:callId/answer', auth, generalRateLimit, async (req, res) => {
     await call.save();
 
     // Generate fresh token for the receiver
-    const receiverUID = `owner_${userId.substring(0, 8)}`;
+    const receiverUID = `owner_${userId}`;
     const receiverToken = generateAgoraToken(call.channelName, receiverUID);
 
     console.log(`📞 Call ${callId} answered successfully`);
@@ -269,7 +252,7 @@ router.post('/:callId/reject', auth, generalRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const { reason } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`❌ User ${userId} rejecting call ${callId}`);
 
@@ -407,7 +390,7 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
       dateFrom, 
       dateTo 
     } = req.query;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`📋 User ${userId} requesting call history`);
 
@@ -448,9 +431,6 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
       calls.map(async (call) => {
         let caller = null;
         if (call.callerId) {
-          // This part of the code was removed as per the edit hint.
-          // The user model is no longer used for caller info.
-          // For now, we'll just return a placeholder.
           caller = {
             name: call.callerInfo?.name || 'Anonymous Caller',
             avatar: '',
@@ -460,8 +440,8 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
           };
         }
 
-        const receiver = { name: 'Unknown', avatar: '' }; // This part of the code was removed as per the edit hint.
-        const device = null; // This part of the code was removed as per the edit hint.
+        const receiver = { name: 'Unknown', avatar: '' };
+        const device = null;
 
         return {
           ...call,
@@ -510,7 +490,7 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
 router.get('/:callId', auth, generalRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     const call = await Call.findOne({
       callId,
@@ -527,9 +507,6 @@ router.get('/:callId', auth, generalRateLimit, async (req, res) => {
     // Populate user details
     let caller = null;
     if (call.callerId) {
-      // This part of the code was removed as per the edit hint.
-      // The user model is no longer used for caller info.
-      // For now, we'll just return a placeholder.
       caller = {
         name: call.callerInfo?.name || 'Anonymous Caller',
         avatar: '',
@@ -537,8 +514,8 @@ router.get('/:callId', auth, generalRateLimit, async (req, res) => {
       };
     }
 
-    const receiver = { name: 'Unknown', avatar: '' }; // This part of the code was removed as per the edit hint.
-    const device = null; // This part of the code was removed as per the edit hint.
+    const receiver = { name: 'Unknown', avatar: '' };
+    const device = null;
 
     res.json({
       success: true,

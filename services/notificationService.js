@@ -42,13 +42,18 @@ const sendPushNotification = async (userId, payload) => {
       throw new Error('No valid device tokens found');
     }
 
+    // Ensure all data values are strings
+    const dataPayload = Object.fromEntries(
+      Object.entries(payload.data || {}).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
+    );
+
     const message = {
       notification: {
         title: payload.title,
         body: payload.body,
       },
       data: {
-        ...payload.data,
+        ...dataPayload,
         timestamp: new Date().toISOString()
       },
       android: {

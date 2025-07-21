@@ -742,8 +742,8 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        this.vehicleInfo = data.info;
-                        this.displayVehicleInfo(data.info);
+                        this.vehicleInfo = data.qrInfo;
+                        this.displayVehicleInfo(data.qrInfo);
                         this.debugLog('✅ Vehicle info loaded successfully', 'success');
                     } else {
                         this.showError(data.error || 'Failed to load vehicle information');
@@ -756,14 +756,18 @@
             }
 
             displayVehicleInfo(info) {
-                // Update vehicle info display
-                this.elements.vehicleType.textContent = info.deviceInfo.vehicleType || 'Unknown';
-                this.elements.vehicleModel.textContent = info.deviceInfo.vehicleModel || 'Unknown';
-                this.elements.vehicleColor.textContent = info.deviceInfo.vehicleColor || 'Unknown';
-                this.elements.vehiclePlate.textContent = info.deviceInfo.plateNumber || 'Hidden';
-                this.elements.ownerName.textContent = info.ownerInfo.name || 'Vehicle Owner';
-                
-                // Set vehicle avatar based on type
+                // Use new structure: info.device.deviceInfo, info.device.settings, info.device.owner
+                const deviceInfo = info.device?.deviceInfo || {};
+                const settings = info.device?.settings || {};
+                const owner = info.device?.owner || {};
+
+                this.elements.vehicleType.textContent = deviceInfo.model || 'Unknown';
+                this.elements.vehicleModel.textContent = deviceInfo.serialNumber || 'Unknown';
+                this.elements.vehicleColor.textContent = settings.color || 'Unknown';
+                this.elements.vehiclePlate.textContent = info.device?.deviceId || 'Hidden';
+                this.elements.ownerName.textContent = owner.userId ? `User #${owner.userId}` : 'Vehicle Owner';
+
+                // Set vehicle avatar (use model as type fallback)
                 const vehicleIcons = {
                     'car': '🚗',
                     'truck': '🚛',
@@ -772,13 +776,21 @@
                     'van': '🚐',
                     'trailer': '🚚'
                 };
-                
-                const vehicleType = info.deviceInfo.vehicleType?.toLowerCase() || 'car';
+                const vehicleType = (deviceInfo.model || '').toLowerCase();
                 this.elements.vehicleAvatar.textContent = vehicleIcons[vehicleType] || '🚗';
-                
+
                 // Show vehicle info section
                 this.elements.vehicleInfo.style.display = 'block';
-                
+
+                // Show emergency contacts if present
+                if (Array.isArray(settings.emergencyContacts) && settings.emergencyContacts.length > 0) {
+                    const contacts = settings.emergencyContacts.map(c => `${c.name} (${c.phone})`).join(', ');
+                    this.showSuccess(`Emergency Contacts: ${contacts}`);
+                }
+                // Show autoAnswer if present
+                if (typeof settings.autoAnswer === 'boolean') {
+                    this.showSuccess(`Auto Answer: ${settings.autoAnswer ? 'Enabled' : 'Disabled'}`);
+                }
                 // Show emergency info if available
                 if (info.emergencyInfo?.specialInstructions) {
                     this.showSuccess(`Special Instructions: ${info.emergencyInfo.specialInstructions}`);
@@ -886,7 +898,7 @@
                 if (this.vehicleInfo) {
                     this.elements.callVehicleAvatar.textContent = this.elements.vehicleAvatar.textContent;
                     this.elements.callVehicleTitle.textContent = 
-                        `${this.vehicleInfo.deviceInfo.vehicleModel} (${this.vehicleInfo.deviceInfo.plateNumber})`;
+                        `${this.vehicleInfo.device?.deviceInfo?.model} (${this.vehicleInfo.device?.deviceId})`;
                 }
                 
                 // Show emergency type

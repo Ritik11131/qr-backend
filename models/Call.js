@@ -75,23 +75,8 @@ const callSchema = new mongoose.Schema({
     deviceId: {
       type: String,
       required: true
-    },
-    vehicleType: {
-      type: String,
-      required: true
-    },
-    vehicleModel: {
-      type: String,
-      required: true
-    },
-    plateNumber: {
-      type: String,
-      required: true
-    },
-    vehicleColor: {
-      type: String,
-      required: true
     }
+    // No other required fields
   },
   timing: {
     initiatedAt: {
@@ -113,7 +98,7 @@ const callSchema = new mongoose.Schema({
   },
   endedBy: {
     type: String,
-    enum: ['caller', 'receiver', 'system', 'timeout'],
+    enum: ['caller', 'receiver', 'system', 'timeout', null],
     default: null
   },
   callQuality: {
