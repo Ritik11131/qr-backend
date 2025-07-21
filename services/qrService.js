@@ -10,7 +10,7 @@ const generateQRBatch = async (count, batchNumber, qrType, generatedBy, baseUrl)
 
     for (let i = 1; i <= count; i++) {
       const qrId = `QR_${batchNumber}_${String(i).padStart(6, '0')}`;
-      const qrUrl = `${baseUrl}/call?qr=${qrId}`;
+      const qrUrl = `${baseUrl}/caller.html?qr=${qrId}`;
       
       const qrCode = {
         qrId,
