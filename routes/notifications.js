@@ -9,34 +9,15 @@ const router = express.Router();
 router.post('/test', auth, generalRateLimit, async (req, res) => {
   try {
     const { title, body, data } = req.body;
-    
-    if (!req.user.deviceTokens || req.user.deviceTokens.length === 0) {
-      return res.status(400).json({ 
-        error: 'No device tokens found for user',
-        code: 'NO_DEVICE_TOKENS'
-      });
+    const userId = req.user.user_id;
+    if (!userId) {
+      return res.status(400).json({ error: 'No user_id in JWT', code: 'NO_USER_ID' });
     }
-
-    const payload = {
-      title: title || 'Test Notification',
-      body: body || 'This is a test notification from QR Vehicle Emergency System',
-      data: data || { type: 'test' }
-    };
-
-    const result = await sendPushNotification(req.user.deviceTokens, payload);
-
-    console.log(`🧪 Test notification sent to user ${req.user.email}`);
-
-    res.json({ 
-      success: true, 
-      message: 'Test notification sent successfully',
-      sentTo: req.user.deviceTokens.length,
-      results: result
-    });
+    const result = await sendPushNotification(userId, { title, body, data });
+    res.json({ success: true, result });
   } catch (error) {
-    console.error('❌ Test notification error:', error);
     res.status(500).json({ 
-      error: 'Failed to send test notification',
+      error: error.message || 'Failed to send test notification',
       code: 'TEST_NOTIFICATION_ERROR'
     });
   }
@@ -46,51 +27,17 @@ router.post('/test', auth, generalRateLimit, async (req, res) => {
 router.post('/send', auth, generalRateLimit, async (req, res) => {
   try {
     const { userId, title, body, data } = req.body;
-
     if (!userId || !title || !body) {
       return res.status(400).json({ 
         error: 'userId, title, and body are required',
         code: 'MISSING_PARAMETERS'
       });
     }
-
-    const User = require('../models/User');
-    const targetUser = await User.findOne({ userId, isActive: true });
-    
-    if (!targetUser) {
-      return res.status(404).json({ 
-        error: 'User not found',
-        code: 'USER_NOT_FOUND'
-      });
-    }
-
-    if (!targetUser.deviceTokens || targetUser.deviceTokens.length === 0) {
-      return res.status(400).json({ 
-        error: 'No device tokens found for target user',
-        code: 'NO_DEVICE_TOKENS'
-      });
-    }
-
-    const payload = {
-      title,
-      body,
-      data: data || {}
-    };
-
-    const result = await sendPushNotification(targetUser.deviceTokens, payload);
-
-    console.log(`📤 Notification sent from ${req.user.email} to ${targetUser.email}`);
-
-    res.json({ 
-      success: true, 
-      message: 'Notification sent successfully',
-      sentTo: targetUser.deviceTokens.length,
-      results: result
-    });
+    const result = await sendPushNotification(userId, { title, body, data });
+    res.json({ success: true, result });
   } catch (error) {
-    console.error('❌ Send notification error:', error);
     res.status(500).json({ 
-      error: 'Failed to send notification',
+      error: error.message || 'Failed to send notification',
       code: 'SEND_NOTIFICATION_ERROR'
     });
   }
@@ -175,21 +122,10 @@ router.post('/bulk', auth, generalRateLimit, async (req, res) => {
       });
     }
 
-    const payload = {
-      title,
-      body,
-      data: data || {}
-    };
-
-    const result = await sendBulkNotification(userIds, payload);
-
-    console.log(`📢 Bulk notification sent by admin ${req.user.email} to ${userIds.length} users`);
-
-    res.json({ 
-      success: true, 
-      message: 'Bulk notification sent successfully',
-      targetUsers: userIds.length,
-      results: result
+    // Device tokens must be managed externally now. Notification sending is a stub.
+    return res.status(501).json({
+      error: 'Notification sending is not implemented. Device tokens must be managed externally.',
+      code: 'NOTIFICATION_NOT_IMPLEMENTED'
     });
   } catch (error) {
     console.error('❌ Bulk notification error:', error);

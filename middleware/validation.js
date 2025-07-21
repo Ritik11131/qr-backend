@@ -42,26 +42,9 @@ const validateQRLink = (req, res, next) => {
     qrId: Joi.string().required(),
     deviceInfo: Joi.object({
       model: Joi.string().required(),
-      serialNumber: Joi.string().required(),
-      firmwareVersion: Joi.string().optional(),
-      manufacturer: Joi.string().optional()
+      serialNumber: Joi.string().required()
     }).required(),
-    vehicleInfo: Joi.object({
-      type: Joi.string().valid('car', 'truck', 'motorcycle', 'van', 'bus', 'trailer', 'other').required(),
-      make: Joi.string().required(),
-      model: Joi.string().required(),
-      year: Joi.number().min(1900).max(new Date().getFullYear() + 2).optional(),
-      plateNumber: Joi.string().required(),
-      color: Joi.string().required(),
-      vin: Joi.string().optional()
-    }).required(),
-    emergencyInfo: Joi.object({
-      showOwnerName: Joi.boolean().default(true),
-      showVehiclePlate: Joi.boolean().default(true),
-      emergencyContact: Joi.string().optional(),
-      alternateContact: Joi.string().optional(),
-      specialInstructions: Joi.string().max(500).optional()
-    }).optional()
+    deviceId: Joi.string().optional()
   });
 
   const { error } = schema.validate(req.body);

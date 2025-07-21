@@ -9,7 +9,7 @@ A comprehensive device-linked QR code system for vehicle emergency and contact c
 - **MongoDB Database** - Scalable document storage for all system data
 - **Agora SDK Integration** - Real-time voice calling capabilities
 - **Firebase Push Notifications** - Instant emergency alerts
-- **JWT Authentication** - Secure user and admin authentication
+- **JWT Authentication** - Secure user and admin authentication (via external provider)
 - **Rate Limiting** - Protection against abuse and spam
 
 ### Business Model
@@ -62,7 +62,7 @@ FIREBASE_CLIENT_EMAIL=your_firebase_client_email
 CALLER_URL=http://localhost:8000
 FRONTEND_URL=http://localhost:3000
 
-# Admin
+# Admin (legacy, not used)
 ADMIN_EMAIL=admin@yourcompany.com
 ADMIN_PASSWORD=secure_admin_password_123
 ```
@@ -72,8 +72,7 @@ ADMIN_PASSWORD=secure_admin_password_123
 # Start MongoDB
 mongod
 
-# Create admin user and sample data
-npm run seed
+# Generate sample QR codes (optional)
 npm run generate-qrs
 ```
 
@@ -90,16 +89,6 @@ The server will run on `http://localhost:5000`
 
 ## 🎯 API Endpoints
 
-### 🔐 Authentication (`/api/auth`)
-- `POST /register` - Register new user
-- `POST /login` - User/Admin login
-- `GET /profile` - Get user profile
-- `PUT /profile` - Update profile
-- `POST /device-token` - Register device for notifications
-- `POST /change-password` - Change password
-- `GET /verify` - Verify token
-- `POST /logout` - Logout user
-
 ### 🏢 Admin - QR Code Management (`/api/admin`)
 - `POST /qr/bulk-generate` - Generate bulk QR codes (10K-20K per batch)
 - `GET /qr/inventory` - View QR code inventory with filtering
@@ -107,7 +96,6 @@ The server will run on `http://localhost:5000`
 - `PUT /qr/:qrId/status` - Update QR code status (suspend/reactivate)
 - `GET /qr/export/:batchNumber` - Export QR batch for printing
 - `GET /dashboard` - Get admin dashboard data
-- `GET /users` - Get all users (admin view)
 
 ### 📱 QR Code & Device Management (`/api/qr`)
 - `GET /info/:qrId` - Get QR info (public, no auth required)
@@ -131,11 +119,11 @@ The server will run on `http://localhost:5000`
 - `GET /config` - Get Agora configuration
 
 ### 🔔 Notifications (`/api/notifications`)
-- `POST /test` - Send test notification (auth required)
-- `POST /send` - Send notification to user (auth required)
-- `GET /settings` - Get notification settings (auth required)
-- `PUT /settings` - Update notification settings (auth required)
-- `POST /bulk` - Send bulk notifications (admin only)
+- `POST /test` - Send test notification (auth required, stub only)
+- `POST /send` - Send notification to user (auth required, stub only)
+- `GET /settings` - Get notification settings (auth required, stub only)
+- `PUT /settings` - Update notification settings (auth required, stub only)
+- `POST /bulk` - Send bulk notifications (admin only, stub only)
 
 ### 🏥 System Health & Info
 - `GET /health` - System health check
@@ -143,37 +131,104 @@ The server will run on `http://localhost:5000`
 
 ## 🔒 Authentication
 
-The system supports two types of authentication:
+**All authentication is handled externally.**
+- The backend expects a valid JWT in the `Authorization` header for all protected endpoints.
+- The JWT must be issued by your external authentication provider and include the following claims:
+  - `unique_name`: User's display name
+  - `role`: User's role (1 = admin, 2 = user)
+  - `user_id`: Unique user identifier
+  - `parent_id`: (if applicable)
+  - `time_zone`: User's time zone
+  - `nbf`, `exp`, `iat`: Standard JWT claims
 
-**User Authentication** (for customers):
-```bash
-Authorization: Bearer <user_jwt_token>
-```
-
-**Admin Authentication** (for GPS installation companies):
-```bash
-Authorization: Bearer <admin_jwt_token>
-```
-
-## 📊 Database Models
-
-### User Model
-```javascript
+**Example JWT payload:**
+```json
 {
-  userId: String (UUID),
-  name: String,
-  email: String (unique),
-  phone: String (unique),
-  password: String (hashed),
-  role: 'user' | 'admin',
-  deviceTokens: [String],
-  preferences: {
-    notifications: { calls, emergencies, marketing },
-    privacy: { showName, showPhone }
-  },
-  stats: { totalCalls, emergencyCalls, devicesLinked }
+  "unique_name": "Balin Admin",
+  "role": "1",
+  "user_id": "2",
+  "parent_id": "1",
+  "time_zone": "05:30",
+  "nbf": 1753093302,
+  "exp": 1753698102,
+  "iat": 1753093302
 }
 ```
+
+**How to authenticate:**
+```bash
+Authorization: Bearer <your_jwt_token>
+```
+
+## 🆕 Example JWTs and Role-Based Flow
+
+### JWT Example (User)
+```json
+{
+  "unique_name": "torqdemo",
+  "role": "2",
+  "user_id": "10",
+  "parent_id": "2",
+  "time_zone": "Asia/Kolkata",
+  "nbf": 1753102241,
+  "exp": 1753707041,
+  "iat": 1753102241
+}
+```
+- `role: "1"` = Admin (GPS company, manages QR codes)
+- `role: "2"` = User (vehicle owner, links QR, receives calls)
+
+### Flow Overview
+
+#### Admin (role: 1)
+- Uses the web portal to:
+  1. Generate bulk QR codes (`/api/admin/qr/bulk-generate`)
+  2. View/manage QR inventory and analytics
+  3. Export QR batches for printing
+  4. Suspend/reactivate QR codes
+- All admin endpoints require a JWT with `role: "1"` in the Authorization header.
+
+#### User (role: 2)
+- Uses the mobile app or web to:
+  1. Scan QR code (public info, no auth required)
+  2. Link QR code to their vehicle (`/api/qr/link`)
+  3. View/manage their linked devices (`/api/qr/my-devices`)
+  4. Update device emergency settings
+  5. Receive and answer emergency calls
+- All user endpoints require a JWT with `role: "2"` in the Authorization header.
+
+#### Anonymous Caller
+- Anyone can scan a QR and initiate an emergency call (no auth required).
+
+### Example Flows
+
+#### Admin Flow (Web Portal)
+1. **Login externally, get admin JWT**
+2. **Generate QR codes**: POST `/api/admin/qr/bulk-generate` (JWT in header)
+3. **Export/print QR codes**: GET `/api/admin/qr/export/:batchNumber` (JWT in header)
+4. **Monitor inventory/analytics**: GET `/api/admin/qr/inventory` and `/api/admin/qr/analytics` (JWT in header)
+
+#### User Flow (Mobile App or Web)
+1. **Login externally, get user JWT**
+2. **Scan QR code**: GET `/api/qr/info/:qrId` (public)
+3. **Link QR to vehicle**: POST `/api/qr/link` (JWT in header)
+4. **View/manage devices**: GET `/api/qr/my-devices` (JWT in header)
+5. **Answer/reject calls**: POST `/api/calls/:callId/answer` or `/reject` (JWT in header)
+
+#### Caller Flow (Webpage or App)
+1. **Scan QR code**: GET `/api/qr/info/:qrId` (public)
+2. **Initiate call**: POST `/api/calls/initiate` (no auth required)
+
+---
+
+## 🔄 Testing Both Roles
+
+- Use the provided Postman collection and set the `auth_token` variable to either an admin JWT (role: 1) or user JWT (role: 2) to test all endpoints.
+- Admin endpoints will only work with a valid admin JWT.
+- User endpoints will only work with a valid user JWT.
+- Anonymous call endpoints require no JWT.
+
+## 📦 Database Models
 
 ### QRCode Model
 ```javascript
@@ -225,89 +280,7 @@ Authorization: Bearer <admin_jwt_token>
 - **🏥 Medical** - Critical priority, medical emergency
 - **💬 General** - Normal priority, general contact
 
-## 🔧 Usage Examples
-
-### For GPS Installation Companies (Admins)
-
-1. **Generate QR Codes**:
-```bash
-curl -X POST http://localhost:5000/api/admin/qr/bulk-generate \
-  -H "Authorization: Bearer ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "count": 1000,
-    "batchNumber": "BATCH_001_2024",
-    "qrType": "sticker"
-  }'
-```
-
-2. **Monitor Inventory**:
-```bash
-curl -X GET "http://localhost:5000/api/admin/qr/inventory?status=linked&page=1&limit=50" \
-  -H "Authorization: Bearer ADMIN_TOKEN"
-```
-
-### For Customers
-
-1. **Register Account**:
-```bash
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "phone": "+1234567890",
-    "password": "password123"
-  }'
-```
-
-2. **Link QR Code to Vehicle**:
-```bash
-curl -X POST http://localhost:5000/api/qr/link \
-  -H "Authorization: Bearer USER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "qrId": "QR_BATCH_001_2024_000001",
-    "deviceInfo": {
-      "model": "GPS-2000",
-      "serialNumber": "SN123456789"
-    },
-    "vehicleInfo": {
-      "type": "car",
-      "make": "Toyota",
-      "model": "Camry",
-      "year": 2023,
-      "plateNumber": "ABC123",
-      "color": "Blue"
-    }
-  }'
-```
-
-### For Anonymous Callers
-
-1. **Get QR Info**:
-```bash
-curl -X GET http://localhost:5000/api/qr/info/QR_BATCH_001_2024_000001
-```
-
-2. **Initiate Emergency Call**:
-```bash
-curl -X POST http://localhost:5000/api/calls/initiate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "qrId": "QR_BATCH_001_2024_000001",
-    "emergencyType": "accident",
-    "urgencyLevel": "high",
-    "callerInfo": {
-      "name": "Emergency Caller",
-      "phone": "+1987654321",
-      "location": "Highway 101, Mile 45",
-      "description": "Vehicle accident, need immediate assistance"
-    }
-  }'
-```
-
-## 🔍 Testing
+## 🧪 Testing
 
 ### 1. System Health Check
 ```bash
@@ -320,11 +293,9 @@ curl http://localhost:5000/api
 ```
 
 ### 3. Complete Testing Flow
-1. Create admin user: `npm run seed`
-2. Generate QR codes: Use admin bulk-generate endpoint
-3. Register customer: Use auth/register endpoint
-4. Link QR to vehicle: Use qr/link endpoint
-5. Test emergency call: Use calls/initiate endpoint
+1. Generate QR codes: Use admin bulk-generate endpoint
+2. Link QR to vehicle: Use qr/link endpoint
+3. Test emergency call: Use calls/initiate endpoint
 
 ## 🚀 Production Deployment
 
@@ -355,15 +326,14 @@ JWT_SECRET=production_secret_key
 
 ## 🛡️ Security Features
 
-- **JWT Authentication** - Secure token-based auth
+- **JWT Authentication** - Secure token-based auth (external)
 - **Rate Limiting** - Protection against abuse
 - **Input Validation** - Joi schema validation
-- **Password Hashing** - bcrypt with salt rounds
 - **CORS Protection** - Configurable origins
 - **Helmet.js** - Security headers
 - **Error Handling** - Secure error responses
 
-## 🆘 Support & Troubleshooting
+## 🏢 Support & Troubleshooting
 
 ### Common Issues
 
@@ -379,7 +349,7 @@ JWT_SECRET=production_secret_key
 
 3. **Push Notifications Not Working**
    - Verify Firebase configuration
-   - Check device token registration
+   - Check device token registration (external)
    - Ensure proper Firebase permissions
 
 ### Debug Tools

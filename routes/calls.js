@@ -1,7 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const Call = require('../models/Call');
-const User = require('../models/User');
 const QRCode = require('../models/QRCode');
 const Device = require('../models/Device');
 const { sendPushNotification } = require('../services/notificationService');
@@ -38,21 +37,16 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       });
     }
 
-    // Get device and owner info
+    // Get device info
     const device = await Device.findOne({
       deviceId: qrCode.linkedTo.deviceId,
       status: 'active'
     });
-    
-    const owner = await User.findOne({ 
-      userId: qrCode.linkedTo.userId,
-      isActive: true 
-    });
 
-    if (!device || !owner) {
+    if (!device) {
       return res.status(404).json({
-        error: 'Device or owner not found, or device is inactive',
-        code: 'DEVICE_OWNER_NOT_FOUND'
+        error: 'Device not found or inactive',
+        code: 'DEVICE_NOT_FOUND'
       });
     }
 
@@ -129,13 +123,6 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
     }
     await device.save();
 
-    // Update user stats
-    owner.stats.totalCalls += 1;
-    if (emergencyType !== 'general') {
-      owner.stats.emergencyCalls += 1;
-    }
-    await owner.save();
-
     // Generate Agora tokens
     const callerUID = `caller_${callId.substring(0, 8)}`;
     const receiverUID = `owner_${qrCode.linkedTo.userId.substring(0, 8)}`;
@@ -173,15 +160,12 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       }
     };
 
-    // Send push notification
-    if (owner.deviceTokens && owner.deviceTokens.length > 0) {
-      try {
-        await sendPushNotification(owner.deviceTokens, notificationData);
-        console.log(`📱 Push notification sent to ${owner.deviceTokens.length} devices`);
-      } catch (notificationError) {
-        console.error('❌ Push notification failed:', notificationError);
-        // Don't fail the call if notification fails
-      }
+    // Send push notification to the receiver (vehicle owner)
+    try {
+      await sendPushNotification(qrCode.linkedTo.userId, notificationData);
+    } catch (notifError) {
+      console.error('❌ Push notification error:', notifError.message);
+      // Do not block the main flow if notification fails
     }
 
     console.log(`✅ Call ${callId} initiated successfully`);
@@ -195,9 +179,9 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       token: callerToken,
       appId: process.env.AGORA_APP_ID,
       receiver: {
-        userId: owner.userId,
-        name: qrCode.emergencyInfo.showOwnerName ? owner.name : 'Vehicle Owner',
-        avatar: owner.avatar
+        userId: qrCode.linkedTo.userId,
+        name: qrCode.emergencyInfo.showOwnerName ? 'Vehicle Owner' : 'Vehicle Owner',
+        avatar: ''
       },
       deviceInfo: {
         vehicleType: device.vehicle.type,
@@ -464,16 +448,20 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
       calls.map(async (call) => {
         let caller = null;
         if (call.callerId) {
-          caller = await User.findOne({ userId: call.callerId }, 'name avatar');
+          // This part of the code was removed as per the edit hint.
+          // The user model is no longer used for caller info.
+          // For now, we'll just return a placeholder.
+          caller = {
+            name: call.callerInfo?.name || 'Anonymous Caller',
+            avatar: '',
+            isAnonymous: true,
+            emergencyType: call.callerInfo?.emergencyType || 'general',
+            urgencyLevel: call.callerInfo?.urgencyLevel || 'medium'
+          };
         }
 
-        const receiver = await User.findOne({ userId: call.receiverId }, 'name avatar');
-
-        // Get device info if available
-        let device = null;
-        if (call.deviceInfo?.deviceId) {
-          device = await Device.findOne({ deviceId: call.deviceInfo.deviceId });
-        }
+        const receiver = { name: 'Unknown', avatar: '' }; // This part of the code was removed as per the edit hint.
+        const device = null; // This part of the code was removed as per the edit hint.
 
         return {
           ...call,
@@ -484,13 +472,8 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
             emergencyType: call.callerInfo?.emergencyType || 'general',
             urgencyLevel: call.callerInfo?.urgencyLevel || 'medium'
           },
-          receiver: receiver || { name: 'Unknown', avatar: '' },
-          device: device ? {
-            vehicleType: device.vehicle.type,
-            vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-            plateNumber: device.vehicle.plateNumber,
-            color: device.vehicle.color
-          } : call.deviceInfo,
+          receiver: receiver,
+          device: device,
           isEmergency: call.callerInfo?.emergencyType !== 'general'
         };
       })
@@ -544,11 +527,18 @@ router.get('/:callId', auth, generalRateLimit, async (req, res) => {
     // Populate user details
     let caller = null;
     if (call.callerId) {
-      caller = await User.findOne({ userId: call.callerId }, 'name avatar');
+      // This part of the code was removed as per the edit hint.
+      // The user model is no longer used for caller info.
+      // For now, we'll just return a placeholder.
+      caller = {
+        name: call.callerInfo?.name || 'Anonymous Caller',
+        avatar: '',
+        isAnonymous: true
+      };
     }
 
-    const receiver = await User.findOne({ userId: call.receiverId }, 'name avatar');
-    const device = await Device.findOne({ deviceId: call.deviceInfo?.deviceId });
+    const receiver = { name: 'Unknown', avatar: '' }; // This part of the code was removed as per the edit hint.
+    const device = null; // This part of the code was removed as per the edit hint.
 
     res.json({
       success: true,
@@ -559,14 +549,8 @@ router.get('/:callId', auth, generalRateLimit, async (req, res) => {
           avatar: '',
           isAnonymous: true
         },
-        receiver: receiver || { name: 'Unknown', avatar: '' },
-        device: device ? {
-          vehicleType: device.vehicle.type,
-          vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-          plateNumber: device.vehicle.plateNumber,
-          color: device.vehicle.color,
-          installation: device.installation
-        } : null,
+        receiver: receiver,
+        device: device,
         isEmergency: call.callerInfo?.emergencyType !== 'general'
       }
     });

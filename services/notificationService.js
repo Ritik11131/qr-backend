@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
+const fetch = require('node-fetch');
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
@@ -20,10 +21,25 @@ if (!admin.apps.length) {
   }
 }
 
-const sendPushNotification = async (deviceTokens, payload) => {
+/**
+ * Send push notification to all device tokens for a user.
+ * @param {string|number} userId - The user ID to fetch tokens for.
+ * @param {object} payload - The notification payload (title, body, data, etc).
+ * @returns {Promise<object>} - Result of notification sending.
+ */
+const sendPushNotification = async (userId, payload) => {
   try {
-    if (!deviceTokens || deviceTokens.length === 0) {
-      throw new Error('No device tokens provided');
+    // Fetch device tokens from external API
+    const response = await fetch(`https://api.torqiot.in/api/token/GetTokenByUserId/${userId}`);
+    if (!response.ok) throw new Error(`Failed to fetch tokens: ${response.status}`);
+    const result = await response.json();
+    if (!result.result || !result.data || !Array.isArray(result.data.android)) {
+      throw new Error('Invalid token API response');
+    }
+    // Filter out invalid tokens
+    const deviceTokens = result.data.android.filter(token => token && token !== 'NOTOKEN');
+    if (deviceTokens.length === 0) {
+      throw new Error('No valid device tokens found');
     }
 
     const message = {
@@ -88,29 +104,10 @@ const sendPushNotification = async (deviceTokens, payload) => {
 };
 
 const sendBulkNotification = async (userIds, payload) => {
-  try {
-    const User = require('../models/User');
-    const users = await User.find({ 
-      userId: { $in: userIds },
-      isActive: true 
-    }, 'deviceTokens');
-
-    const allTokens = users.reduce((tokens, user) => {
-      return tokens.concat(user.deviceTokens || []);
-    }, []);
-
-    if (allTokens.length === 0) {
-      throw new Error('No device tokens found for specified users');
-    }
-
-    return await sendPushNotification(allTokens, payload);
-  } catch (error) {
-    console.error('❌ Bulk notification error:', error);
-    throw error;
-  }
+  // Device tokens must be managed externally now. Notification sending is a stub.
+  throw new Error('Bulk notification sending is not implemented. Device tokens must be managed externally.');
 };
 
 module.exports = {
-  sendPushNotification,
-  sendBulkNotification
+  sendPushNotification
 };

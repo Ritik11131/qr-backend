@@ -9,7 +9,6 @@ require('dotenv').config();
 const app = express();
 
 // Import routes
-const authRoutes = require('./routes/auth');
 const qrRoutes = require('./routes/qr');
 const callRoutes = require('./routes/calls');
 const agoraRoutes = require('./routes/agora');
@@ -84,7 +83,6 @@ app.get('/api', (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/agora', agoraRoutes);

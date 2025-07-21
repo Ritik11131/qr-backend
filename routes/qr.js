@@ -2,7 +2,6 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('../models/QRCode');
 const Device = require('../models/Device');
-const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 const { generalRateLimit } = require('../middleware/rateLimiter');
 const { validateQRLink } = require('../middleware/validation');
@@ -44,25 +43,20 @@ router.get('/info/:qrId', generalRateLimit, async (req, res) => {
       });
     }
 
-    // Get device and owner information
+    // Get device information
     const device = await Device.findOne({ 
       deviceId: qrCode.linkedTo.deviceId,
       status: 'active'
     });
-    
-    const owner = await User.findOne({ 
-      userId: qrCode.linkedTo.userId,
-      isActive: true 
-    });
 
-    if (!device || !owner) {
+    if (!device) {
       return res.status(404).json({ 
-        error: 'Device or owner not found',
-        code: 'DEVICE_OWNER_NOT_FOUND'
+        error: 'Device not found',
+        code: 'DEVICE_NOT_FOUND'
       });
     }
 
-    // Return public information based on privacy settings
+    // Return public information (owner info is not available)
     res.json({
       success: true,
       qrInfo: {
@@ -70,27 +64,14 @@ router.get('/info/:qrId', generalRateLimit, async (req, res) => {
         status: qrCode.status,
         isLinked: true,
         linkedAt: qrCode.linkedTo.linkedAt,
-        vehicle: {
-          type: device.vehicle.type,
-          make: device.vehicle.make,
-          model: device.vehicle.model,
-          color: device.vehicle.color,
-          plateNumber: qrCode.emergencyInfo.showVehiclePlate 
-            ? device.vehicle.plateNumber 
-            : 'Hidden'
+        device: {
+          deviceId: device.deviceId,
+          deviceInfo: device.deviceInfo,
+          owner: device.owner,
+          status: device.status,
+          settings: device.settings
         },
-        owner: {
-          name: qrCode.emergencyInfo.showOwnerName 
-            ? owner.name 
-            : 'Vehicle Owner',
-          isOnline: owner.isOnline,
-          lastSeen: owner.lastSeen
-        },
-        emergencyInfo: {
-          emergencyContact: qrCode.emergencyInfo.emergencyContact,
-          alternateContact: qrCode.emergencyInfo.alternateContact,
-          specialInstructions: qrCode.emergencyInfo.specialInstructions
-        },
+        emergencyInfo: qrCode.emergencyInfo,
         allowAnonymousCalls: device.settings.allowAnonymousCalls
       }
     });
@@ -106,8 +87,8 @@ router.get('/info/:qrId', generalRateLimit, async (req, res) => {
 // Link QR code to device (AUTH REQUIRED)
 router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) => {
   try {
-    const { qrId, deviceInfo, vehicleInfo, emergencyInfo = {} } = req.body;
-    const userId = req.user.userId;
+    const { qrId, deviceInfo, deviceId: providedDeviceId } = req.body;
+    const userId = req.user.user_id;
 
     console.log(`🔗 Linking QR ${qrId} to user ${userId}`);
 
@@ -148,34 +129,21 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
       });
     }
 
-    // Create device record
-    const deviceId = uuidv4();
+    // Use provided deviceId or generate a new one
+    const deviceId = providedDeviceId || uuidv4();
     const device = new Device({
       deviceId,
       deviceInfo: {
         model: deviceInfo.model,
-        serialNumber: deviceInfo.serialNumber,
-        firmwareVersion: deviceInfo.firmwareVersion || '',
-        manufacturer: deviceInfo.manufacturer || 'GPS Solutions Inc.'
+        serialNumber: deviceInfo.serialNumber
       },
-      vehicle: vehicleInfo,
       owner: {
-        userId,
-        isPrimary: true,
-        relationship: 'owner'
+        userId
       },
-      installation: {
-        installedBy: req.user.name,
-        installationDate: new Date(),
-        installerNotes: `Linked via QR code ${qrId}`
-      },
+      status: 'active',
       settings: {
-        emergencyContacts: [],
-        autoAnswer: false,
-        callTimeout: 30,
         allowAnonymousCalls: true
-      },
-      status: 'active'
+      }
     });
 
     await device.save();
@@ -187,19 +155,7 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
       deviceId,
       linkedAt: new Date()
     };
-    qrCode.emergencyInfo = {
-      showOwnerName: emergencyInfo.showOwnerName !== false,
-      showVehiclePlate: emergencyInfo.showVehiclePlate !== false,
-      emergencyContact: emergencyInfo.emergencyContact || '',
-      alternateContact: emergencyInfo.alternateContact || '',
-      specialInstructions: emergencyInfo.specialInstructions || ''
-    };
-
     await qrCode.save();
-
-    // Update user stats
-    req.user.stats.devicesLinked += 1;
-    await req.user.save();
 
     console.log(`✅ QR ${qrId} successfully linked to device ${deviceId}`);
 
@@ -214,7 +170,9 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
       },
       device: {
         deviceId: device.deviceId,
-        vehicle: device.vehicle,
+        deviceInfo: device.deviceInfo,
+        owner: device.owner,
+        status: device.status,
         settings: device.settings
       },
       emergencyUrl: qrCode.qrUrl
@@ -231,7 +189,7 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
 // Get user's devices (AUTH REQUIRED)
 router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
     const { page = 1, limit = 10 } = req.query;
 
     console.log(`📱 Getting devices for user: ${userId}`);
@@ -256,11 +214,9 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
       return {
         deviceId: device.deviceId,
         deviceInfo: device.deviceInfo,
-        vehicle: device.vehicle,
-        installation: device.installation,
-        settings: device.settings,
+        owner: device.owner,
         status: device.status,
-        stats: device.stats,
+        settings: device.settings,
         qrCode: qrCode ? {
           qrId: qrCode.qrId,
           qrUrl: qrCode.qrUrl,
@@ -284,13 +240,8 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
         totalPages: Math.ceil(totalDevices / limit),
         totalItems: totalDevices,
         itemsPerPage: Number(limit)
-      },
-      summary: {
-        totalDevices,
-        activeDevices: devices.filter(d => d.status === 'active').length,
-        totalCalls: devices.reduce((sum, d) => sum + d.stats.totalCalls, 0),
-        emergencyCalls: devices.reduce((sum, d) => sum + d.stats.emergencyCalls, 0)
       }
+      // No summary field, as stats are no longer present
     });
   } catch (error) {
     console.error('❌ Error getting user devices:', error);
@@ -305,8 +256,8 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
 router.put('/device/:deviceId/settings', auth, generalRateLimit, async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const { emergencyContacts, autoAnswer, callTimeout, allowAnonymousCalls } = req.body;
-    const userId = req.user.userId;
+    const { emergencyContacts, autoAnswer, allowAnonymousCalls } = req.body;
+    const userId = req.user.user_id;
 
     console.log(`⚙️ Updating settings for device: ${deviceId}`);
 
@@ -322,26 +273,21 @@ router.put('/device/:deviceId/settings', auth, generalRateLimit, async (req, res
       });
     }
 
-    // Update settings
-    const updates = {};
-    if (emergencyContacts !== undefined) updates['settings.emergencyContacts'] = emergencyContacts;
-    if (autoAnswer !== undefined) updates['settings.autoAnswer'] = autoAnswer;
-    if (callTimeout !== undefined) updates['settings.callTimeout'] = callTimeout;
-    if (allowAnonymousCalls !== undefined) updates['settings.allowAnonymousCalls'] = allowAnonymousCalls;
+    // Update settings (add fields if not present)
+    if (emergencyContacts !== undefined) device.settings.emergencyContacts = emergencyContacts;
+    if (autoAnswer !== undefined) device.settings.autoAnswer = autoAnswer;
+    if (allowAnonymousCalls !== undefined) device.settings.allowAnonymousCalls = allowAnonymousCalls;
 
-    const updatedDevice = await Device.findOneAndUpdate(
-      { deviceId },
-      updates,
-      { new: true }
-    );
+    await device.save();
 
     res.json({
       success: true,
       message: 'Device settings updated successfully',
       device: {
-        deviceId: updatedDevice.deviceId,
-        settings: updatedDevice.settings,
-        vehicle: updatedDevice.vehicle
+        deviceId: device.deviceId,
+        settings: device.settings,
+        owner: device.owner,
+        status: device.status
       }
     });
   } catch (error) {
@@ -358,7 +304,7 @@ router.post('/unlink/:qrId', auth, generalRateLimit, async (req, res) => {
   try {
     const { qrId } = req.params;
     const { reason } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`🔓 Unlinking QR ${qrId} from user ${userId}`);
 
@@ -403,10 +349,6 @@ router.post('/unlink/:qrId', auth, generalRateLimit, async (req, res) => {
 
     await qrCode.save();
 
-    // Update user stats
-    req.user.stats.devicesLinked = Math.max(0, req.user.stats.devicesLinked - 1);
-    await req.user.save();
-
     console.log(`✅ QR ${qrId} successfully unlinked`);
 
     res.json({
@@ -429,7 +371,7 @@ router.get('/device/:deviceId/calls', auth, generalRateLimit, async (req, res) =
   try {
     const { deviceId } = req.params;
     const { page = 1, limit = 20, emergencyOnly } = req.query;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     // Verify device ownership
     const device = await Device.findOne({ 
