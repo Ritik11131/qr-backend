@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Voice Call - Receiver (Enhanced)</title>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 2rem;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2c3e50, #3498db);
+        }
+
+        .debug-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            text-align: left;
+            font-size: 0.8rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .debug-panel h4 {
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+
+        .debug-log {
+            font-family: monospace;
+            color: #6c757d;
+            margin: 0.2rem 0;
+        }
+
+        .debug-log.success { color: #28a745; }
+        .debug-log.error { color: #dc3545; }
+        .debug-log.warning { color: #ffc107; }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .login-section {
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #3498db;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .input-group label {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #7f8c8d;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .input-group input:focus + label,
+        .input-group input:not(:placeholder-shown) + label {
+            top: -0.5rem;
+            left: 0.8rem;
+            font-size: 0.8rem;
+            color: #3498db;
+            background: white;
+            padding: 0 0.5rem;
+        }
+
+        .waiting-section {
+            display: none;
+        }
+
+        .status-indicator {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: white;
+            font-size: 2.5rem;
+            position: relative;
+        }
+
+        .status-indicator::after {
+            content: '';
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border: 3px solid #27ae60;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.1); opacity: 0.1; }
+            100% { transform: scale(1); opacity: 0.3; }
+        }
+
+        .incoming-call {
+            display: none;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .caller-info {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .caller-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .caller-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .caller-details {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .call-actions {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .action-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-answer {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        }
+
+        .btn-reject {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .active-call {
+            display: none;
+        }
+
+        .call-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .btn-mute {
+            background: linear-gradient(135deg, #6c757d, #495057);
+            color: white;
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-mute.muted {
+            background: linear-gradient(135deg, #ffc107, #fd7e14);
+        }
+
+        .btn-end {
+            background: linear-gradient(135deg, #dc3545, #e74c3c);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+        }
+
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .success-message {
+            background: #d1edff;
+            color: #0c5460;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .call-timer {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 1rem 0;
+        }
+
+        .audio-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3px;
+            margin: 1rem 0;
+        }
+
+        .audio-bar {
+            width: 3px;
+            height: 20px;
+            background: #3498db;
+            border-radius: 2px;
+            animation: audioWave 1.5s ease-in-out infinite;
+        }
+
+        .audio-bar:nth-child(2) { animation-delay: 0.1s; }
+        .audio-bar:nth-child(3) { animation-delay: 0.2s; }
+        .audio-bar:nth-child(4) { animation-delay: 0.3s; }
+        .audio-bar:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes audioWave {
+            0%, 100% { height: 20px; opacity: 0.3; }
+            50% { height: 35px; opacity: 1; }
+        }
+
+        .ring-animation {
+            animation: ring 1s ease-in-out infinite;
+        }
+
+        @keyframes ring {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.1) rotate(-5deg); }
+            75% { transform: scale(1.1) rotate(5deg); }
+        }
+
+        .toggle-debug {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+            
+            .action-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-debug" onclick="toggleDebug()">Toggle Debug</button>
+    
+    <div class="container">
+        <!-- Debug Panel -->
+        <div id="debugPanel" class="debug-panel" style="display: none;">
+            <h4>🔧 Debug Log</h4>
+            <div id="debugLog"></div>
+        </div>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="login-section">
+            <div class="header">
+                <h1>📞 Voice Receiver</h1>
+                <p>Login to receive QR voice calls</p>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+            <div id="successMessage" class="success-message" style="display: none;"></div>
+
+            <div class="input-group">
+                <input type="email" id="emailInput" placeholder=" " required value="receiver@test.com">
+                <label for="emailInput">Email Address</label>
+            </div>
+
+            <div class="input-group">
+                <input type="password" id="passwordInput" placeholder=" " required value="password123">
+                <label for="passwordInput">Password</label>
+            </div>
+
+            <button id="loginBtn" class="primary-btn">
+                🔐 Login & Start Listening
+            </button>
+        </div>
+
+        <!-- Waiting Section -->
+        <div id="waitingSection" class="waiting-section">
+            <div class="header">
+                <h1>🎧 Ready to Receive</h1>
+                <p>Waiting for incoming calls...</p>
+            </div>
+
+            <div class="status-indicator">
+                📞
+            </div>
+
+            <p style="color: #7f8c8d; margin-bottom: 1rem;">
+                Your QR codes are active and ready to receive calls
+            </p>
+
+            <button id="logoutBtn" class="primary-btn" style="background: linear-gradient(135deg, #6c757d, #495057);">
+                🚪 Logout
+            </button>
+        </div>
+
+        <!-- Incoming Call Section -->
+        <div id="incomingCall" class="incoming-call">
+            <div class="header">
+                <h1 class="ring-animation">📞 Incoming Call</h1>
+                <p>Someone wants to talk to you</p>
+            </div>
+
+            <div class="caller-info">
+                <div class="caller-avatar" id="callerAvatar">👤</div>
+                <div class="caller-name" id="callerName">Anonymous Caller</div>
+                <div class="caller-details" id="callerDetails">Via QR Code</div>
+                <div class="caller-details" id="qrCodeName"></div>
+            </div>
+
+            <div class="call-actions">
+                <button id="rejectBtn" class="action-btn btn-reject" title="Reject Call">
+                    📞
+                </button>
+                <button id="answerBtn" class="action-btn btn-answer" title="Answer Call">
+                    📞
+                </button>
+            </div>
+        </div>
+
+        <!-- Active Call Section -->
+        <div id="activeCall" class="active-call">
+            <div class="header">
+                <h1>🔊 Call Active</h1>
+                <p>Connected with caller</p>
+            </div>
+
+            <div class="caller-info">
+                <div class="caller-avatar" id="activeCallerAvatar">👤</div>
+                <div class="caller-name" id="activeCallerName">Anonymous Caller</div>
+            </div>
+
+            <div class="call-timer" id="callTimer">00:00</div>
+            
+            <div class="audio-indicator" id="audioIndicator">
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+            </div>
+
+            <div class="call-controls">
+                <button id="muteBtn" class="control-btn btn-mute" title="Mute/Unmute">
+                    🎤
+                </button>
+                <button id="endCallBtn" class="control-btn btn-end" title="End Call">
+                    📞
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ReceiverApp {
+            constructor() {
+                this.socket = null;
+                this.agoraClient = null;
+                this.localAudioTrack = null;
+                this.currentCall = null;
+                this.userToken = null;
+                this.userId = null;
+                this.callTimer = null;
+                this.callStartTime = null;
+                this.isMuted = false;
+                this.ringtoneInterval = null;
+                
+                this.initializeElements();
+                this.attachEventListeners();
+                this.checkExistingLogin();
+                
+                this.debugLog('🚀 Receiver app initialized');
+            }
+
+            debugLog(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logElement = document.getElementById('debugLog');
+                const logEntry = document.createElement('div');
+                logEntry.className = `debug-log ${type}`;
+                logEntry.textContent = `[${timestamp}] ${message}`;
+                logElement.appendChild(logEntry);
+                logElement.scrollTop = logElement.scrollHeight;
+                console.log(`[RECEIVER] ${message}`);
+            }
+
+            initializeElements() {
+                this.elements = {
+                    loginSection: document.getElementById('loginSection'),
+                    waitingSection: document.getElementById('waitingSection'),
+                    incomingCall: document.getElementById('incomingCall'),
+                    activeCall: document.getElementById('activeCall'),
+                    emailInput: document.getElementById('emailInput'),
+                    passwordInput: document.getElementById('passwordInput'),
+                    loginBtn: document.getElementById('loginBtn'),
+                    logoutBtn: document.getElementById('logoutBtn'),
+                    callerAvatar: document.getElementById('callerAvatar'),
+                    callerName: document.getElementById('callerName'),
+                    callerDetails: document.getElementById('callerDetails'),
+                    qrCodeName: document.getElementById('qrCodeName'),
+                    answerBtn: document.getElementById('answerBtn'),
+                    rejectBtn: document.getElementById('rejectBtn'),
+                    activeCallerAvatar: document.getElementById('activeCallerAvatar'),
+                    activeCallerName: document.getElementById('activeCallerName'),
+                    callTimer: document.getElementById('callTimer'),
+                    audioIndicator: document.getElementById('audioIndicator'),
+                    muteBtn: document.getElementById('muteBtn'),
+                    endCallBtn: document.getElementById('endCallBtn'),
+                    errorMessage: document.getElementById('errorMessage'),
+                    successMessage: document.getElementById('successMessage')
+                };
+            }
+
+            attachEventListeners() {
+                this.elements.loginBtn.addEventListener('click', () => this.login());
+                this.elements.logoutBtn.addEventListener('click', () => this.logout());
+                this.elements.answerBtn.addEventListener('click', () => this.answerCall());
+                this.elements.rejectBtn.addEventListener('click', () => this.rejectCall());
+                this.elements.muteBtn.addEventListener('click', () => this.toggleMute());
+                this.elements.endCallBtn.addEventListener('click', () => this.endCall());
+                
+                // Enter key support
+                this.elements.passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.login();
+                });
+            }
+
+            checkExistingLogin() {
+                const token = localStorage.getItem('receiverToken');
+                const userId = localStorage.getItem('receiverUserId');
+                
+                if (token && userId) {
+                    this.userToken = token;
+                    this.userId = userId;
+                    this.debugLog(`🔐 Found existing login for user: ${userId}`);
+                    this.showWaitingSection();
+                    this.initializeSocket();
+                }
+            }
+
+            showError(message) {
+                this.elements.errorMessage.textContent = message;
+                this.elements.errorMessage.style.display = 'block';
+                this.elements.successMessage.style.display = 'none';
+                this.debugLog(`❌ Error: ${message}`, 'error');
+                setTimeout(() => {
+                    this.elements.errorMessage.style.display = 'none';
+                }, 5000);
+            }
+
+            showSuccess(message) {
+                this.elements.successMessage.textContent = message;
+                this.elements.successMessage.style.display = 'block';
+                this.elements.errorMessage.style.display = 'none';
+                this.debugLog(`✅ Success: ${message}`, 'success');
+                setTimeout(() => {
+                    this.elements.successMessage.style.display = 'none';
+                }, 3000);
+            }
+
+            async login() {
+                const email = this.elements.emailInput.value.trim();
+                const password = this.elements.passwordInput.value.trim();
+
+                if (!email || !password) {
+                    this.showError('Please enter both email and password');
+                    return;
+                }
+
+                this.debugLog(`🔐 Attempting login for: ${email}`);
+                this.elements.loginBtn.disabled = true;
+                this.elements.loginBtn.innerHTML = '<span class="loading"></span>Logging in...';
+
+                try {
+                    const response = await fetch('http://localhost:5000/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    const data = await response.json();
+                    this.debugLog(`📥 Login response: ${JSON.stringify(data)}`);
+
+                    if (data.success) {
+                        this.userToken = data.token;
+                        this.userId = data.user.userId;
+                        
+                        // Store in localStorage
+                        localStorage.setItem('receiverToken', this.userToken);
+                        localStorage.setItem('receiverUserId', this.userId);
+                        
+                        this.debugLog(`✅ Login successful for user: ${data.user.name}`, 'success');
+                        this.showSuccess('Login successful!');
+                        setTimeout(() => {
+                            this.showWaitingSection();
+                            this.initializeSocket();
+                        }, 1000);
+                    } else {
+                        this.showError(data.error || 'Login failed');
+                    }
+                } catch (error) {
+                    this.debugLog(`❌ Login error: ${error.message}`, 'error');
+                    this.showError('Network error. Please try again.');
+                } finally {
+                    this.elements.loginBtn.disabled = false;
+                    this.elements.loginBtn.innerHTML = '🔐 Login & Start Listening';
+                }
+            }
+
+            logout() {
+                this.debugLog('🚪 Logging out...');
+                localStorage.removeItem('receiverToken');
+                localStorage.removeItem('receiverUserId');
+                
+                if (this.socket) {
+                    this.socket.disconnect();
+                }
+                
+                this.cleanup();
+                this.showLoginSection();
+            }
+
+            showLoginSection() {
+                this.elements.loginSection.style.display = 'block';
+                this.elements.waitingSection.style.display = 'none';
+                this.elements.incomingCall.style.display = 'none';
+                this.elements.activeCall.style.display = 'none';
+            }
+
+            showWaitingSection() {
+                this.elements.loginSection.style.display = 'none';
+                this.elements.waitingSection.style.display = 'block';
+                this.elements.incomingCall.style.display = 'none';
+                this.elements.activeCall.style.display = 'none';
+                this.debugLog('📱 Switched to waiting section');
+            }
+
+            showIncomingCall() {
+                this.elements.loginSection.style.display = 'none';
+                this.elements.waitingSection.style.display = 'none';
+                this.elements.incomingCall.style.display = 'block';
+                this.elements.activeCall.style.display = 'none';
+                this.debugLog('📞 Showing incoming call interface');
+            }
+
+            showActiveCall() {
+                this.elements.loginSection.style.display = 'none';
+                this.elements.waitingSection.style.display = 'none';
+                this.elements.incomingCall.style.display = 'none';
+                this.elements.activeCall.style.display = 'block';
+                this.debugLog('🔊 Switched to active call interface');
+            }
+
+            initializeSocket() {
+                this.debugLog('🔌 Connecting to Socket.IO server...');
+                this.socket = io('http://localhost:5000', {
+                    transports: ['websocket', 'polling'],
+                    timeout: 10000,
+                    forceNew: true
+                });
+                
+                this.socket.on('connect', () => {
+                    this.debugLog('✅ Socket.IO connected successfully', 'success');
+                    this.debugLog(`Socket ID: ${this.socket.id}`);
+                    
+                    // Add this debug check
+                    if (this.userId) {
+                        this.debugLog(`🔄 Emitting join-user for: ${this.userId}`);
+                        this.socket.emit('join-user', this.userId);
+                    } else {
+                        this.debugLog('❌ No userId found - cannot join room', 'error');
+                    }
+                });
+
+                this.socket.on('joined', (data) => {
+                    this.debugLog(`🏠 Joined user room: ${data.userId}`, 'success');
+                });
+
+                this.socket.on('connect_error', (error) => {
+                    this.debugLog(`❌ Socket connection error: ${error.message}`, 'error');
+                });
+
+                this.socket.on('disconnect', (reason) => {
+                    this.debugLog(`🔌 Socket disconnected: ${reason}`, 'warning');
+                });
+
+                this.socket.on('incoming-call', (callData) => {
+                    this.debugLog(`📞 Incoming call received: ${JSON.stringify(callData)}`, 'success');
+                    this.handleIncomingCall(callData);
+                });
+
+                this.socket.on('call-ended', (data) => {
+                    this.debugLog(`📴 Call ended event: ${JSON.stringify(data)}`, 'warning');
+                    this.handleCallEnded(data);
+                });
+
+                this.socket.on('error', (error) => {
+                    this.debugLog(`🔥 Socket error: ${error}`, 'error');
+                });
+            }
+
+            handleIncomingCall(callData) {
+                this.debugLog(`📞 Processing incoming call: ${JSON.stringify(callData)}`, 'success');
+                this.currentCall = callData;
+                
+                // Update caller info
+                const callerInfo = callData.callerInfo || {};
+                this.elements.callerName.textContent = callerInfo.name || 'Anonymous Caller';
+                this.elements.callerAvatar.textContent = (callerInfo.name || 'A').charAt(0).toUpperCase();
+                
+                let details = 'Via QR Code';
+                if (callerInfo.phone) {
+                    details += ` • ${callerInfo.phone}`;
+                }
+                if (callerInfo.location) {
+                    details += ` • ${callerInfo.location}`;
+                }
+                this.elements.callerDetails.textContent = details;
+                
+                if (callData.qrCodeName) {
+                    this.elements.qrCodeName.textContent = `QR: ${callData.qrCodeName}`;
+                }
+                
+                this.showIncomingCall();
+                this.playRingtone();
+            }
+
+            playRingtone() {
+                this.debugLog('🔔 Playing ringtone...');
+                // Simple beep using Web Audio API
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                    
+                    // Repeat every 2 seconds
+                    this.ringtoneInterval = setInterval(() => {
+                        if (this.elements.incomingCall.style.display === 'block') {
+                            const osc = audioContext.createOscillator();
+                            const gain = audioContext.createGain();
+                            
+                            osc.connect(gain);
+                            gain.connect(audioContext.destination);
+                            
+                            osc.frequency.setValueAtTime(800, audioContext.currentTime);
+                            gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                            
+                            osc.start();
+                            osc.stop(audioContext.currentTime + 0.5);
+                        } else {
+                            clearInterval(this.ringtoneInterval);
+                        }
+                    }, 2000);
+                } catch (error) {
+                    this.debugLog(`❌ Could not play ringtone: ${error.message}`, 'error');
+                }
+            }
+
+            async answerCall() {
+                if (!this.currentCall) {
+                    this.debugLog('❌ No current call to answer', 'error');
+                    return;
+                }
+
+                this.debugLog(`✅ Answering call: ${this.currentCall.callId}`);
+
+                try {
+                    const response = await fetch(`http://localhost:5000/api/calls/${this.currentCall.callId}/answer`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.userToken}`
+                        }
+                    });
+
+                    const data = await response.json();
+                    this.debugLog(`📥 Answer response: ${JSON.stringify(data)}`);
+
+                    if (data.success) {
+                        // Stop ringtone
+                        if (this.ringtoneInterval) {
+                            clearInterval(this.ringtoneInterval);
+                            this.ringtoneInterval = null;
+                        }
+                        
+                        // Initialize Agora with the response data
+                        await this.initializeAgora(data);
+                        this.showActiveCallInterface();
+                        
+                        // Emit socket event to notify caller
+                        if (this.socket && this.socket.connected) {
+                            this.socket.emit('call-answered', {
+                                callId: this.currentCall.callId,
+                                callerId: this.currentCall.callerId
+                            });
+                        }
+                    } else {
+                        this.showError(data.error || 'Failed to answer call');
+                    }
+                } catch (error) {
+                    this.debugLog(`❌ Error answering call: ${error.message}`, 'error');
+                    this.showError('Failed to answer call');
+                }
+            }
+
+            async rejectCall() {
+                if (!this.currentCall) {
+                    this.debugLog('❌ No current call to reject', 'error');
+                    return;
+                }
+
+                this.debugLog(`❌ Rejecting call: ${this.currentCall.callId}`);
+
+                try {
+                    await fetch(`http://localhost:5000/api/calls/${this.currentCall.callId}/reject`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.userToken}`
+                        }
+                    });
+
+                    // Stop ringtone
+                    if (this.ringtoneInterval) {
+                        clearInterval(this.ringtoneInterval);
+                        this.ringtoneInterval = null;
+                    }
+                    
+                    // Emit socket event to notify caller
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('call-rejected', {
+                            callId: this.currentCall.callId,
+                            callerId: this.currentCall.callerId
+                        });
+                    }
+                    
+                    this.currentCall = null;
+                    this.showWaitingSection();
+                } catch (error) {
+                    this.debugLog(`❌ Error rejecting call: ${error.message}`, 'error');
+                }
+            }
+
+            showActiveCallInterface() {
+                const callerInfo = this.currentCall.callerInfo || {};
+                this.elements.activeCallerName.textContent = callerInfo.name || 'Anonymous Caller';
+                this.elements.activeCallerAvatar.textContent = (callerInfo.name || 'A').charAt(0).toUpperCase();
+                
+                this.showActiveCall();
+                this.startCallTimer();
+            }
+
+            async initializeAgora(callData) {
+                try {
+                    this.debugLog('🎵 Initializing Agora SDK for receiver...');
+                    
+                    // Initialize Agora client
+                    this.agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+                    this.debugLog('✅ Agora client created');
+                    
+                    // Join channel
+                    this.debugLog(`🏠 Joining channel: ${callData.channelName} with UID: user_${this.userId}`);
+                    await this.agoraClient.join(
+                        callData.appId,
+                        callData.channelName,
+                        callData.token,
+                        `owner_${this.userId.substring(0, 8)}`
+                    );
+                    this.debugLog('✅ Successfully joined Agora channel');
+
+                    // Create and publish local audio track
+                    this.debugLog('🎤 Creating microphone audio track...');
+                    this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                    await this.agoraClient.publish([this.localAudioTrack]);
+                    this.debugLog('✅ Local audio track published');
+
+                    // Listen for remote users
+                    this.agoraClient.on("user-published", async (user, mediaType) => {
+                        this.debugLog(`👤 Remote user published: ${user.uid}, mediaType: ${mediaType}`, 'success');
+                        await this.agoraClient.subscribe(user, mediaType);
+                        if (mediaType === "audio") {
+                            user.audioTrack.play();
+                            this.elements.audioIndicator.style.display = 'flex';
+                            this.debugLog('🔊 Remote audio track playing', 'success');
+                        }
+                    });
+
+                    this.agoraClient.on("user-unpublished", (user) => {
+                        this.debugLog(`👋 Remote user unpublished: ${user.uid}`, 'warning');
+                    });
+
+                    this.agoraClient.on("user-joined", (user) => {
+                        this.debugLog(`🎉 Remote user joined: ${user.uid}`, 'success');
+                    });
+
+                    this.agoraClient.on("user-left", (user) => {
+                        this.debugLog(`👋 Remote user left: ${user.uid}`, 'warning');
+                    });
+
+                    this.debugLog('✅ Agora initialized successfully for receiver', 'success');
+                } catch (error) {
+                    this.debugLog(`❌ Agora initialization error: ${error.message}`, 'error');
+                    this.showError('Failed to initialize voice call');
+                }
+            }
+
+            startCallTimer() {
+                this.callStartTime = Date.now();
+                
+                this.callTimer = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - this.callStartTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    const seconds = (elapsed % 60).toString().padStart(2, '0');
+                    this.elements.callTimer.textContent = `${minutes}:${seconds}`;
+                }, 1000);
+            }
+
+            async toggleMute() {
+                if (!this.localAudioTrack) return;
+
+                this.isMuted = !this.isMuted;
+                await this.localAudioTrack.setMuted(this.isMuted);
+                
+                this.elements.muteBtn.classList.toggle('muted', this.isMuted);
+                this.elements.muteBtn.textContent = this.isMuted ? '🔇' : '🎤';
+                this.debugLog(`🎤 Microphone ${this.isMuted ? 'muted' : 'unmuted'}`);
+            }
+
+            async endCall() {
+                if (!this.currentCall) return;
+
+                this.debugLog('📴 Ending call...');
+
+                try {
+                    const duration = this.callStartTime ? Math.floor((Date.now() - this.callStartTime) / 1000) : 0;
+                    
+                    await fetch(`http://localhost:5000/api/calls/${this.currentCall.callId}/end`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            duration,
+                            endedBy: 'receiver'
+                        })
+                    });
+
+                    // Emit socket event
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('call-ended', {
+                            callId: this.currentCall.callId,
+                            participantId: this.currentCall.callerId
+                        });
+                    }
+                } catch (error) {
+                    this.debugLog(`❌ Error ending call: ${error.message}`, 'error');
+                }
+
+                this.cleanup();
+                this.showWaitingSection();
+            }
+
+            handleCallEnded(data) {
+                this.debugLog(`📴 Call ended: ${JSON.stringify(data)}`, 'warning');
+                this.cleanup();
+                this.showWaitingSection();
+            }
+
+            cleanup() {
+                this.debugLog('🧹 Cleaning up call resources...');
+                
+                // Clear timers
+                if (this.callTimer) {
+                    clearInterval(this.callTimer);
+                    this.callTimer = null;
+                }
+
+                if (this.ringtoneInterval) {
+                    clearInterval(this.ringtoneInterval);
+                    this.ringtoneInterval = null;
+                }
+
+                // Clean up Agora
+                if (this.localAudioTrack) {
+                    this.localAudioTrack.close();
+                    this.localAudioTrack = null;
+                }
+
+                if (this.agoraClient) {
+                    this.agoraClient.leave();
+                    this.agoraClient = null;
+                }
+
+                // Reset state
+                this.currentCall = null;
+                this.isMuted = false;
+                this.callStartTime = null;
+                
+                this.debugLog('✅ Cleanup completed');
+            }
+        }
+
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            window.receiverApp = new ReceiverApp();
+        });
+    </script>
+</body>
+</html>
