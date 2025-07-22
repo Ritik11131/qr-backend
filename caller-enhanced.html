@@ -7,6 +7,40 @@
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
+        :root {
+            --primary-color: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary-color: #764ba2;
+            --accent-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --success-color: #28a745;
+            --info-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #2c3e50;
+            --muted-color: #6c757d;
+            --border-color: #e1e8ed;
+            --shadow-light: 0 2px 10px rgba(0,0,0,0.1);
+            --shadow-medium: 0 8px 25px rgba(0,0,0,0.15);
+            --shadow-heavy: 0 20px 40px rgba(0,0,0,0.2);
+            --border-radius: 12px;
+            --border-radius-lg: 20px;
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-xxl: 3rem;
+            --font-size-xs: 0.75rem;
+            --font-size-sm: 0.875rem;
+            --font-size-base: 1rem;
+            --font-size-lg: 1.125rem;
+            --font-size-xl: 1.25rem;
+            --font-size-2xl: 1.5rem;
+            --font-size-3xl: 1.875rem;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,25 +48,28 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #333;
+            color: var(--dark-color);
+            padding: var(--spacing-md);
+            line-height: 1.6;
         }
 
         .container {
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            padding: 2rem;
-            width: 90%;
-            max-width: 450px;
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow-heavy);
+            padding: var(--spacing-xl);
+            width: 100%;
+            max-width: 480px;
             text-align: center;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(10px);
         }
 
         .container::before {
@@ -42,152 +79,270 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         }
 
         .header {
-            margin-bottom: 2rem;
+            margin-bottom: var(--spacing-xl);
         }
 
         .header h1 {
-            color: #2c3e50;
-            font-size: 1.8rem;
-            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+            letter-spacing: -0.025em;
         }
 
         .header p {
-            color: #7f8c8d;
-            font-size: 0.9rem;
-        }
-
-        .vehicle-info {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            border-left: 4px solid #28a745;
-        }
-
-        .vehicle-avatar {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #28a745, #20c997);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1rem;
-            color: white;
-            font-size: 1.5rem;
-        }
-
-        .vehicle-details {
-            text-align: left;
-        }
-
-        .vehicle-details h3 {
-            color: #2c3e50;
-            margin-bottom: 0.5rem;
-        }
-
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.3rem;
-            font-size: 0.9rem;
-        }
-
-        .detail-label {
-            color: #6c757d;
+            color: var(--muted-color);
+            font-size: var(--font-size-sm);
             font-weight: 500;
         }
 
+        .vehicle-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vehicle-info::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--success-color);
+        }
+
+        .vehicle-header {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .vehicle-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--success-color), #20c997);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: var(--font-size-2xl);
+            box-shadow: var(--shadow-light);
+            flex-shrink: 0;
+        }
+
+        .vehicle-title {
+            text-align: left;
+            flex: 1;
+        }
+
+        .vehicle-title h3 {
+            color: var(--dark-color);
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .vehicle-subtitle {
+            color: var(--muted-color);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+        }
+
+        .vehicle-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: var(--spacing-md);
+            text-align: left;
+        }
+
+        .detail-item {
+            background: white;
+            padding: var(--spacing-md);
+            border-radius: var(--spacing-sm);
+            border: 1px solid #e9ecef;
+        }
+
+        .detail-label {
+            color: var(--muted-color);
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--spacing-xs);
+        }
+
         .detail-value {
-            color: #2c3e50;
+            color: var(--dark-color);
+            font-size: var(--font-size-sm);
             font-weight: 600;
         }
 
-        .emergency-section {
-            margin-bottom: 2rem;
+        .emergency-contacts {
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            border-radius: var(--spacing-sm);
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-md);
         }
 
-        .emergency-type {
+        .emergency-contacts h4 {
+            color: var(--success-color);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .contact-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+        }
+
+        .contact-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: var(--font-size-xs);
+        }
+
+        .contact-name {
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .contact-phone {
+            color: var(--muted-color);
+            font-family: monospace;
+        }
+
+        .emergency-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .section-title {
+            color: var(--dark-color);
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            text-align: left;
+        }
+
+        .emergency-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
         }
 
         .emergency-btn {
-            padding: 0.8rem;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
+            padding: var(--spacing-lg);
+            border: 2px solid var(--border-color);
+            border-radius: var(--border-radius);
             background: white;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.85rem;
+            transition: var(--transition);
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.3rem;
+            gap: var(--spacing-sm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+
+        .emergency-btn:hover::before {
+            left: 100%;
         }
 
         .emergency-btn:hover {
-            border-color: #667eea;
+            border-color: var(--primary-color);
             background: #f8f9ff;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-light);
         }
 
         .emergency-btn.selected {
-            border-color: #dc3545;
+            border-color: var(--danger-color);
             background: #fff5f5;
-            color: #dc3545;
-        }
-
-        .emergency-btn.accident {
-            border-color: #dc3545;
-            background: #fff5f5;
+            color: var(--danger-color);
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
         }
 
         .emergency-btn .icon {
-            font-size: 1.2rem;
+            font-size: var(--font-size-xl);
+        }
+
+        .emergency-btn .label {
+            font-size: var(--font-size-sm);
+            font-weight: 600;
         }
 
         .caller-info {
-            margin-bottom: 2rem;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .form-grid {
+            display: grid;
+            gap: var(--spacing-lg);
         }
 
         .input-group {
             position: relative;
-            margin-bottom: 1rem;
         }
 
         .input-group input,
         .input-group textarea {
             width: 100%;
-            padding: 1rem;
-            border: 2px solid #e1e8ed;
-            border-radius: 12px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background: #f8f9fa;
+            padding: var(--spacing-lg);
+            border: 2px solid var(--border-color);
+            border-radius: var(--border-radius);
+            font-size: var(--font-size-base);
+            transition: var(--transition);
+            background: var(--light-color);
             resize: vertical;
+            font-family: inherit;
         }
 
         .input-group input:focus,
         .input-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary-color);
             background: white;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .input-group label {
             position: absolute;
-            top: 1rem;
-            left: 1rem;
-            color: #7f8c8d;
-            transition: all 0.3s ease;
+            top: var(--spacing-lg);
+            left: var(--spacing-lg);
+            color: var(--muted-color);
+            transition: var(--transition);
             pointer-events: none;
+            font-weight: 500;
         }
 
         .input-group input:focus + label,
@@ -195,11 +350,12 @@
         .input-group textarea:focus + label,
         .input-group textarea:not(:placeholder-shown) + label {
             top: -0.5rem;
-            left: 0.8rem;
-            font-size: 0.8rem;
-            color: #667eea;
+            left: 0.75rem;
+            font-size: var(--font-size-xs);
+            color: var(--primary-color);
             background: white;
-            padding: 0 0.5rem;
+            padding: 0 var(--spacing-sm);
+            font-weight: 600;
         }
 
         .call-interface {
@@ -207,154 +363,42 @@
         }
 
         .call-status {
-            padding: 0.8rem 1.5rem;
+            padding: var(--spacing-md) var(--spacing-lg);
             border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
             display: inline-block;
+            min-width: 200px;
         }
 
         .status-calling {
-            background: #fff3cd;
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
             color: #856404;
             animation: pulse 2s infinite;
         }
 
         .status-connected {
-            background: #d1edff;
+            background: linear-gradient(135deg, #d1edff, #74b9ff);
             color: #0c5460;
         }
 
         .status-ended {
-            background: #f8d7da;
+            background: linear-gradient(135deg, #f8d7da, #fab1a0);
             color: #721c24;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .call-controls {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-
-        .control-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            transition: all 0.3s ease;
-        }
-
-        .control-btn:hover {
-            transform: scale(1.1);
-        }
-
-        .btn-call {
-            background: linear-gradient(135deg, #28a745, #20c997);
-            color: white;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-        }
-
-        .btn-end {
-            background: linear-gradient(135deg, #dc3545, #e74c3c);
-            color: white;
-            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
-        }
-
-        .btn-mute {
-            background: linear-gradient(135deg, #6c757d, #495057);
-            color: white;
-            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
-        }
-
-        .btn-mute.muted {
-            background: linear-gradient(135deg, #ffc107, #fd7e14);
-        }
-
-        .primary-btn {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
-
-        .primary-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-        }
-
-        .primary-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .primary-btn.emergency {
-            background: linear-gradient(135deg, #dc3545, #e74c3c);
-            animation: pulse-red 2s infinite;
-        }
-
-        @keyframes pulse-red {
-            0% { box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3); }
-            50% { box-shadow: 0 8px 35px rgba(220, 53, 69, 0.6); }
-            100% { box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3); }
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 0.5rem;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
-        }
-
-        .success-message {
-            background: #d1edff;
-            color: #0c5460;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            font-size: 0.9rem;
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
         }
 
         .call-timer {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #2c3e50;
-            margin: 1rem 0;
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            color: var(--dark-color);
+            margin: var(--spacing-lg) 0;
+            font-family: monospace;
         }
 
         .audio-indicator {
@@ -362,13 +406,14 @@
             justify-content: center;
             align-items: center;
             gap: 3px;
-            margin: 1rem 0;
+            margin: var(--spacing-lg) 0;
+            height: 40px;
         }
 
         .audio-bar {
-            width: 3px;
+            width: 4px;
             height: 20px;
-            background: #667eea;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
             border-radius: 2px;
             animation: audioWave 1.5s ease-in-out infinite;
         }
@@ -379,66 +424,415 @@
         .audio-bar:nth-child(5) { animation-delay: 0.4s; }
 
         @keyframes audioWave {
-            0%, 100% { height: 20px; opacity: 0.3; }
+            0%, 100% { height: 20px; opacity: 0.4; }
             50% { height: 35px; opacity: 1; }
         }
 
+        .call-controls {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-xl);
+        }
+
+        .control-btn {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-size-xl);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        .control-btn:hover::before {
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-call {
+            background: linear-gradient(135deg, var(--success-color), #20c997);
+            color: white;
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-end {
+            background: linear-gradient(135deg, var(--danger-color), #e74c3c);
+            color: white;
+            box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-mute {
+            background: linear-gradient(135deg, var(--muted-color), #495057);
+            color: white;
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.3);
+        }
+
+        .btn-mute.muted {
+            background: linear-gradient(135deg, var(--warning-color), #fd7e14);
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            padding: var(--spacing-lg) var(--spacing-xl);
+            border-radius: var(--border-radius);
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .primary-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .primary-btn:hover::before {
+            left: 100%;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .primary-btn:active {
+            transform: translateY(0);
+        }
+
+        .primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .primary-btn.emergency {
+            background: linear-gradient(135deg, var(--danger-color), #e74c3c);
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3); }
+            50% { box-shadow: 0 12px 40px rgba(220, 53, 69, 0.6); }
+            100% { box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3); }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: var(--spacing-sm);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: var(--spacing-md);
+            border-radius: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #f8d7da, #fab1a0);
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .success-message {
+            background: linear-gradient(135deg, #d1edff, #74b9ff);
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
         .debug-panel {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            background: var(--light-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--spacing-sm);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
             text-align: left;
-            font-size: 0.8rem;
-            max-height: 150px;
+            font-size: var(--font-size-xs);
+            max-height: 200px;
             overflow-y: auto;
             display: none;
         }
 
         .debug-log {
-            font-family: monospace;
-            color: #6c757d;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            color: var(--muted-color);
             margin: 0.2rem 0;
+            line-height: 1.4;
         }
 
-        .debug-log.success { color: #28a745; }
-        .debug-log.error { color: #dc3545; }
-        .debug-log.warning { color: #ffc107; }
+        .debug-log.success { color: var(--success-color); }
+        .debug-log.error { color: var(--danger-color); }
+        .debug-log.warning { color: #e67e22; }
 
         .toggle-debug {
             position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #6c757d;
+            top: var(--spacing-md);
+            right: var(--spacing-md);
+            background: var(--muted-color);
             color: white;
             border: none;
-            padding: 0.5rem;
-            border-radius: 5px;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--spacing-sm);
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: var(--font-size-xs);
+            font-weight: 600;
+            z-index: 1000;
+            transition: var(--transition);
         }
 
-        @media (max-width: 480px) {
-            .container {
-                margin: 1rem;
-                padding: 1.5rem;
+        .toggle-debug:hover {
+            background: var(--dark-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 640px) {
+            body {
+                padding: var(--spacing-sm);
             }
             
-            .emergency-type {
+            .container {
+                padding: var(--spacing-lg);
+                max-width: 100%;
+            }
+            
+            .header h1 {
+                font-size: var(--font-size-xl);
+            }
+            
+            .emergency-grid {
+                grid-template-columns: 1fr;
+                gap: var(--spacing-sm);
+            }
+            
+            .vehicle-details {
                 grid-template-columns: 1fr;
             }
             
             .control-btn {
-                width: 50px;
-                height: 50px;
-                font-size: 1.2rem;
+                width: 56px;
+                height: 56px;
+                font-size: var(--font-size-lg);
+            }
+            
+            .call-controls {
+                gap: var(--spacing-md);
+            }
+            
+            .vehicle-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .vehicle-title {
+                text-align: center;
+            }
+            
+            .contact-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--spacing-xs);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: var(--spacing-md);
+                border-radius: var(--border-radius);
+            }
+            
+            .vehicle-avatar {
+                width: 56px;
+                height: 56px;
+                font-size: var(--font-size-xl);
+            }
+            
+            .emergency-btn {
+                padding: var(--spacing-md);
+            }
+            
+            .input-group input,
+            .input-group textarea {
+                padding: var(--spacing-md);
+            }
+            
+            .input-group label {
+                top: var(--spacing-md);
+                left: var(--spacing-md);
+            }
+            
+            .primary-btn {
+                padding: var(--spacing-md) var(--spacing-lg);
+            }
+        }
+
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .container {
+                max-width: 520px;
+            }
+            
+            .emergency-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .vehicle-details {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1025px) {
+            .container {
+                max-width: 560px;
+            }
+            
+            .emergency-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .vehicle-details {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --light-color: #2d3748;
+                --dark-color: #f7fafc;
+                --border-color: #4a5568;
+                --muted-color: #a0aec0;
+            }
+            
+            body {
+                background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            }
+            
+            .container {
+                background: #1a202c;
+                color: var(--dark-color);
+            }
+            
+            .vehicle-info {
+                background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            }
+            
+            .detail-item {
+                background: #2d3748;
+                border-color: var(--border-color);
+            }
+            
+            .input-group input,
+            .input-group textarea {
+                background: #2d3748;
+                border-color: var(--border-color);
+                color: var(--dark-color);
+            }
+            
+            .emergency-btn {
+                background: #2d3748;
+                border-color: var(--border-color);
+                color: var(--dark-color);
+            }
+        }
+
+        /* High contrast mode */
+        @media (prefers-contrast: high) {
+            .container {
+                border: 2px solid var(--dark-color);
+            }
+            
+            .emergency-btn,
+            .input-group input,
+            .input-group textarea {
+                border-width: 2px;
+            }
+            
+            .primary-btn {
+                border: 2px solid transparent;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            
+            .container {
+                box-shadow: none;
+                border: 1px solid black;
+            }
+            
+            .toggle-debug,
+            .call-controls,
+            .primary-btn {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <button class="toggle-debug" onclick="toggleDebug()">Debug</button>
+    <button class="toggle-debug" onclick="toggleDebug()">🔧 Debug</button>
     
     <div class="container">
         <!-- Debug Panel -->
@@ -450,81 +844,99 @@
         <!-- Vehicle Info Section -->
         <div id="vehicleInfoSection">
             <div class="header">
-                <h1>🚗 Vehicle Contact</h1>
-                <p>Contact the owner of this vehicle</p>
+                <h1>🚗 Emergency Vehicle Contact</h1>
+                <p>Connect with the vehicle owner instantly</p>
             </div>
 
-            <div id="errorMessage" class="error-message" style="display: none;"></div>
-            <div id="successMessage" class="success-message" style="display: none;"></div>
+            <div id="errorMessage" class="message error-message" style="display: none;"></div>
+            <div id="successMessage" class="message success-message" style="display: none;"></div>
 
             <div id="vehicleInfo" class="vehicle-info" style="display: none;">
-                <div class="vehicle-avatar" id="vehicleAvatar">🚗</div>
+                <div class="vehicle-header">
+                    <div class="vehicle-avatar" id="vehicleAvatar">🚗</div>
+                    <div class="vehicle-title">
+                        <h3 id="vehicleTitle">Vehicle Information</h3>
+                        <div class="vehicle-subtitle" id="vehicleSubtitle">Loading...</div>
+                    </div>
+                </div>
+                
                 <div class="vehicle-details">
-                    <h3 id="vehicleTitle">Vehicle Information</h3>
-                    <div class="detail-row">
-                        <span class="detail-label">Type:</span>
-                        <span class="detail-value" id="vehicleType">-</span>
+                    <div class="detail-item">
+                        <div class="detail-label">Device Model</div>
+                        <div class="detail-value" id="deviceModel">-</div>
                     </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Model:</span>
-                        <span class="detail-value" id="vehicleModel">-</span>
+                    <div class="detail-item">
+                        <div class="detail-label">Serial Number</div>
+                        <div class="detail-value" id="serialNumber">-</div>
                     </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Color:</span>
-                        <span class="detail-value" id="vehicleColor">-</span>
+                    <div class="detail-item">
+                        <div class="detail-label">Device ID</div>
+                        <div class="detail-value" id="deviceId">-</div>
                     </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Plate:</span>
-                        <span class="detail-value" id="vehiclePlate">-</span>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value" id="deviceStatus">-</div>
                     </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Owner:</span>
-                        <span class="detail-value" id="ownerName">-</span>
+                    <div class="detail-item">
+                        <div class="detail-label">Owner ID</div>
+                        <div class="detail-value" id="ownerId">-</div>
                     </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Anonymous Calls</div>
+                        <div class="detail-value" id="anonymousCalls">-</div>
+                    </div>
+                </div>
+
+                <div id="emergencyContactsSection" class="emergency-contacts" style="display: none;">
+                    <h4>🚨 Emergency Contacts</h4>
+                    <div id="contactList" class="contact-list"></div>
                 </div>
             </div>
 
             <div class="emergency-section">
-                <h3 style="margin-bottom: 1rem; color: #2c3e50;">What's the situation?</h3>
-                <div class="emergency-type">
+                <h3 class="section-title">What's the situation?</h3>
+                <div class="emergency-grid">
                     <div class="emergency-btn" data-type="accident">
                         <span class="icon">🚨</span>
-                        <span>Accident</span>
+                        <span class="label">Accident</span>
                     </div>
                     <div class="emergency-btn" data-type="breakdown">
                         <span class="icon">🔧</span>
-                        <span>Breakdown</span>
+                        <span class="label">Breakdown</span>
                     </div>
                     <div class="emergency-btn" data-type="theft">
                         <span class="icon">🚔</span>
-                        <span>Theft/Security</span>
+                        <span class="label">Theft/Security</span>
                     </div>
                     <div class="emergency-btn" data-type="general">
                         <span class="icon">💬</span>
-                        <span>General</span>
+                        <span class="label">General</span>
                     </div>
                 </div>
             </div>
 
             <div class="caller-info">
-                <div class="input-group">
-                    <input type="text" id="callerNameInput" placeholder=" " value="">
-                    <label for="callerNameInput">Your Name (Optional)</label>
-                </div>
+                <h3 class="section-title">Your Information (Optional)</h3>
+                <div class="form-grid">
+                    <div class="input-group">
+                        <input type="text" id="callerNameInput" placeholder=" " value="">
+                        <label for="callerNameInput">Your Name</label>
+                    </div>
 
-                <div class="input-group">
-                    <input type="text" id="callerPhoneInput" placeholder=" ">
-                    <label for="callerPhoneInput">Your Phone (Optional)</label>
-                </div>
+                    <div class="input-group">
+                        <input type="tel" id="callerPhoneInput" placeholder=" ">
+                        <label for="callerPhoneInput">Your Phone Number</label>
+                    </div>
 
-                <div class="input-group">
-                    <input type="text" id="callerLocationInput" placeholder=" ">
-                    <label for="callerLocationInput">Your Location (Optional)</label>
-                </div>
+                    <div class="input-group">
+                        <input type="text" id="callerLocationInput" placeholder=" ">
+                        <label for="callerLocationInput">Your Location</label>
+                    </div>
 
-                <div class="input-group">
-                    <textarea id="descriptionInput" placeholder=" " rows="3"></textarea>
-                    <label for="descriptionInput">Describe the situation (Optional)</label>
+                    <div class="input-group">
+                        <textarea id="descriptionInput" placeholder=" " rows="3"></textarea>
+                        <label for="descriptionInput">Describe the situation</label>
+                    </div>
                 </div>
             </div>
 
@@ -541,10 +953,12 @@
             </div>
 
             <div class="vehicle-info">
-                <div class="vehicle-avatar" id="callVehicleAvatar">🚗</div>
-                <div class="vehicle-details">
-                    <h3 id="callVehicleTitle">Calling...</h3>
-                    <div id="callEmergencyType" style="color: #dc3545; font-weight: 600; margin-top: 0.5rem;"></div>
+                <div class="vehicle-header">
+                    <div class="vehicle-avatar" id="callVehicleAvatar">🚗</div>
+                    <div class="vehicle-title">
+                        <h3 id="callVehicleTitle">Calling...</h3>
+                        <div id="callEmergencyType" class="vehicle-subtitle"></div>
+                    </div>
                 </div>
             </div>
 
@@ -612,11 +1026,16 @@
                     callInterface: document.getElementById('callInterface'),
                     vehicleInfo: document.getElementById('vehicleInfo'),
                     vehicleAvatar: document.getElementById('vehicleAvatar'),
-                    vehicleType: document.getElementById('vehicleType'),
-                    vehicleModel: document.getElementById('vehicleModel'),
-                    vehicleColor: document.getElementById('vehicleColor'),
-                    vehiclePlate: document.getElementById('vehiclePlate'),
-                    ownerName: document.getElementById('ownerName'),
+                    vehicleTitle: document.getElementById('vehicleTitle'),
+                    vehicleSubtitle: document.getElementById('vehicleSubtitle'),
+                    deviceModel: document.getElementById('deviceModel'),
+                    serialNumber: document.getElementById('serialNumber'),
+                    deviceId: document.getElementById('deviceId'),
+                    deviceStatus: document.getElementById('deviceStatus'),
+                    ownerId: document.getElementById('ownerId'),
+                    anonymousCalls: document.getElementById('anonymousCalls'),
+                    emergencyContactsSection: document.getElementById('emergencyContactsSection'),
+                    contactList: document.getElementById('contactList'),
                     callerNameInput: document.getElementById('callerNameInput'),
                     callerPhoneInput: document.getElementById('callerPhoneInput'),
                     callerLocationInput: document.getElementById('callerLocationInput'),
@@ -651,6 +1070,11 @@
                         this.getCurrentLocation();
                     }
                 });
+
+                // Input validation
+                this.elements.callerPhoneInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/[^0-9+\-\s()]/g, '');
+                });
             }
 
             selectEmergencyType(type) {
@@ -675,15 +1099,22 @@
             }
 
             getCurrentLocation() {
+                this.debugLog('🌍 Requesting location access...');
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
-                        const lat = position.coords.latitude;
-                        const lng = position.coords.longitude;
-                        this.elements.callerLocationInput.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-                        this.debugLog('Location detected and filled');
+                        const lat = position.coords.latitude.toFixed(6);
+                        const lng = position.coords.longitude.toFixed(6);
+                        this.elements.callerLocationInput.value = `${lat}, ${lng}`;
+                        this.debugLog(`✅ Location detected: ${lat}, ${lng}`, 'success');
                     },
                     (error) => {
-                        this.debugLog(`Location detection failed: ${error.message}`, 'warning');
+                        this.debugLog(`❌ Location detection failed: ${error.message}`, 'error');
+                        this.showError('Location access denied. Please enter your location manually.');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000
                     }
                 );
             }
@@ -702,6 +1133,10 @@
 
                 this.socket.on('connect_error', (error) => {
                     this.debugLog(`❌ Socket connection error: ${error.message}`, 'error');
+                });
+
+                this.socket.on('disconnect', (reason) => {
+                    this.debugLog(`🔌 Socket disconnected: ${reason}`, 'warning');
                 });
 
                 this.socket.on('call-accepted', (data) => {
@@ -729,7 +1164,7 @@
                     this.debugLog(`📱 QR ID from URL: ${qrId}`, 'success');
                     await this.loadVehicleInfo(qrId);
                 } else {
-                    this.showError('No QR code specified. Please scan a valid QR code.');
+                    this.showError('No QR code specified. Please scan a valid QR code to continue.');
                     this.debugLog('❌ No QR ID in URL', 'error');
                 }
             }
@@ -739,62 +1174,109 @@
                     this.debugLog(`🔍 Loading vehicle info for QR: ${qrId}`);
                     
                     const response = await fetch(`http://localhost:5000/api/qr/info/${qrId}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
                     const data = await response.json();
                     
-                    if (data.success) {
+                    if (data.success && data.qrInfo) {
                         this.vehicleInfo = data.qrInfo;
                         this.displayVehicleInfo(data.qrInfo);
                         this.debugLog('✅ Vehicle info loaded successfully', 'success');
                     } else {
-                        this.showError(data.error || 'Failed to load vehicle information');
-                        this.debugLog(`❌ Failed to load vehicle info: ${data.error}`, 'error');
+                        throw new Error(data.error || 'Invalid response format');
                     }
                 } catch (error) {
-                    this.showError('Network error. Please check your connection.');
-                    this.debugLog(`❌ Network error loading vehicle info: ${error.message}`, 'error');
+                    this.debugLog(`❌ Failed to load vehicle info: ${error.message}`, 'error');
+                    this.showError(`Failed to load vehicle information: ${error.message}`);
                 }
             }
 
             displayVehicleInfo(info) {
-                // Use new structure: info.device.deviceInfo, info.device.settings, info.device.owner
-                const deviceInfo = info.device?.deviceInfo || {};
-                const settings = info.device?.settings || {};
-                const owner = info.device?.owner || {};
+                try {
+                    // Extract data from the new structure
+                    const device = info.device || {};
+                    const deviceInfo = device.deviceInfo || {};
+                    const settings = device.settings || {};
+                    const owner = device.owner || {};
+                    const emergencyInfo = info.emergencyInfo || {};
 
-                this.elements.vehicleType.textContent = deviceInfo.model || 'Unknown';
-                this.elements.vehicleModel.textContent = deviceInfo.serialNumber || 'Unknown';
-                this.elements.vehicleColor.textContent = settings.color || 'Unknown';
-                this.elements.vehiclePlate.textContent = info.device?.deviceId || 'Hidden';
-                this.elements.ownerName.textContent = owner.userId ? `User #${owner.userId}` : 'Vehicle Owner';
+                    // Update basic vehicle information
+                    this.elements.deviceModel.textContent = deviceInfo.model || 'Unknown Model';
+                    this.elements.serialNumber.textContent = deviceInfo.serialNumber || 'Unknown';
+                    this.elements.deviceId.textContent = device.deviceId || 'Hidden';
+                    this.elements.deviceStatus.textContent = device.status || 'Unknown';
+                    this.elements.ownerId.textContent = owner.userId ? `User #${owner.userId}` : 'Unknown';
+                    this.elements.anonymousCalls.textContent = settings.allowAnonymousCalls ? 'Allowed' : 'Not Allowed';
 
-                // Set vehicle avatar (use model as type fallback)
-                const vehicleIcons = {
-                    'car': '🚗',
-                    'truck': '🚛',
-                    'motorcycle': '🏍️',
-                    'bus': '🚌',
-                    'van': '🚐',
-                    'trailer': '🚚'
-                };
-                const vehicleType = (deviceInfo.model || '').toLowerCase();
-                this.elements.vehicleAvatar.textContent = vehicleIcons[vehicleType] || '🚗';
+                    // Update titles
+                    this.elements.vehicleTitle.textContent = `${deviceInfo.model || 'Vehicle'} Device`;
+                    this.elements.vehicleSubtitle.textContent = `Serial: ${deviceInfo.serialNumber || 'Unknown'} • Status: ${device.status || 'Unknown'}`;
 
-                // Show vehicle info section
-                this.elements.vehicleInfo.style.display = 'block';
+                    // Set vehicle avatar based on model
+                    const vehicleIcons = {
+                        'gps-2000': '📡',
+                        'tracker': '📍',
+                        'car': '🚗',
+                        'truck': '🚛',
+                        'motorcycle': '🏍️',
+                        'bus': '🚌',
+                        'van': '🚐'
+                    };
+                    
+                    const modelKey = (deviceInfo.model || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    this.elements.vehicleAvatar.textContent = vehicleIcons[modelKey] || vehicleIcons['tracker'] || '📡';
 
-                // Show emergency contacts if present
-                if (Array.isArray(settings.emergencyContacts) && settings.emergencyContacts.length > 0) {
-                    const contacts = settings.emergencyContacts.map(c => `${c.name} (${c.phone})`).join(', ');
-                    this.showSuccess(`Emergency Contacts: ${contacts}`);
+                    // Handle emergency contacts
+                    if (Array.isArray(settings.emergencyContacts) && settings.emergencyContacts.length > 0) {
+                        this.displayEmergencyContacts(settings.emergencyContacts);
+                        this.elements.emergencyContactsSection.style.display = 'block';
+                    } else {
+                        this.elements.emergencyContactsSection.style.display = 'none';
+                    }
+
+                    // Show success messages for important settings
+                    const statusMessages = [];
+                    
+                    if (settings.autoAnswer === true) {
+                        statusMessages.push('Auto-answer is enabled for faster connection');
+                    }
+                    
+                    if (emergencyInfo.specialInstructions) {
+                        statusMessages.push(`Special Instructions: ${emergencyInfo.specialInstructions}`);
+                    }
+                    
+                    if (statusMessages.length > 0) {
+                        this.showSuccess(statusMessages.join(' • '));
+                    }
+
+                    // Show vehicle info section
+                    this.elements.vehicleInfo.style.display = 'block';
+                    
+                    this.debugLog('✅ Vehicle info displayed successfully', 'success');
+                    
+                } catch (error) {
+                    this.debugLog(`❌ Error displaying vehicle info: ${error.message}`, 'error');
+                    this.showError('Error displaying vehicle information');
                 }
-                // Show autoAnswer if present
-                if (typeof settings.autoAnswer === 'boolean') {
-                    this.showSuccess(`Auto Answer: ${settings.autoAnswer ? 'Enabled' : 'Disabled'}`);
-                }
-                // Show emergency info if available
-                if (info.emergencyInfo?.specialInstructions) {
-                    this.showSuccess(`Special Instructions: ${info.emergencyInfo.specialInstructions}`);
-                }
+            }
+
+            displayEmergencyContacts(contacts) {
+                this.elements.contactList.innerHTML = '';
+                
+                contacts.forEach((contact, index) => {
+                    const contactItem = document.createElement('div');
+                    contactItem.className = 'contact-item';
+                    
+                    contactItem.innerHTML = `
+                        <span class="contact-name">${contact.name || `Contact ${index + 1}`}</span>
+                        <span class="contact-phone">${contact.phone || 'No phone'}</span>
+                    `;
+                    
+                    this.elements.contactList.appendChild(contactItem);
+                });
             }
 
             showError(message) {
@@ -802,9 +1284,11 @@
                 this.elements.errorMessage.style.display = 'block';
                 this.elements.successMessage.style.display = 'none';
                 this.debugLog(`❌ Error: ${message}`, 'error');
+                
+                // Auto-hide after 10 seconds
                 setTimeout(() => {
                     this.elements.errorMessage.style.display = 'none';
-                }, 8000);
+                }, 10000);
             }
 
             showSuccess(message) {
@@ -812,14 +1296,21 @@
                 this.elements.successMessage.style.display = 'block';
                 this.elements.errorMessage.style.display = 'none';
                 this.debugLog(`✅ Success: ${message}`, 'success');
+                
+                // Auto-hide after 7 seconds
                 setTimeout(() => {
                     this.elements.successMessage.style.display = 'none';
-                }, 5000);
+                }, 7000);
             }
 
             async initiateCall() {
                 if (!this.qrId) {
                     this.showError('No QR code specified');
+                    return;
+                }
+
+                if (!this.vehicleInfo) {
+                    this.showError('Vehicle information not loaded');
                     return;
                 }
 
@@ -829,6 +1320,8 @@
                 const description = this.elements.descriptionInput.value.trim();
 
                 this.debugLog(`📞 Initiating ${this.selectedEmergencyType} call for QR: ${this.qrId}`);
+                
+                // Update button state
                 this.elements.initiateCallBtn.disabled = true;
                 this.elements.initiateCallBtn.innerHTML = '<span class="loading"></span>Connecting...';
 
@@ -837,18 +1330,18 @@
                         qrId: this.qrId,
                         callType: 'audio',
                         emergencyType: this.selectedEmergencyType,
-                        urgencyLevel: this.selectedEmergencyType === 'accident' ? 'critical' : 
-                                     this.selectedEmergencyType === 'theft' ? 'high' : 'medium',
+                        urgencyLevel: this.getUrgencyLevel(this.selectedEmergencyType),
                         callerInfo: {
                             name: callerName,
                             phone: callerPhone,
                             location: callerLocation,
                             description: description,
-                            additionalInfo: `Emergency Type: ${this.selectedEmergencyType}`
+                            emergencyType: this.selectedEmergencyType,
+                            timestamp: new Date().toISOString()
                         }
                     };
 
-                    this.debugLog(`📤 Sending call request: ${JSON.stringify(callPayload)}`);
+                    this.debugLog(`📤 Sending call request: ${JSON.stringify(callPayload, null, 2)}`);
 
                     const response = await fetch('http://localhost:5000/api/calls/initiate', {
                         method: 'POST',
@@ -858,12 +1351,16 @@
                         body: JSON.stringify(callPayload)
                     });
 
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
                     const data = await response.json();
-                    this.debugLog(`📥 Call response: ${JSON.stringify(data)}`);
+                    this.debugLog(`📥 Call response: ${JSON.stringify(data, null, 2)}`);
 
                     if (data.success) {
                         this.callData = data;
-                        this.debugLog(`✅ Call initiated successfully. Call ID: ${data.callId}`);
+                        this.debugLog(`✅ Call initiated successfully. Call ID: ${data.callId}`, 'success');
                         this.showCallInterface();
                         await this.initializeAgora();
                         this.startCallStatusPolling();
@@ -875,19 +1372,31 @@
                                 receiverId: data.receiver?.userId || 'unknown',
                                 callerInfo: callPayload.callerInfo,
                                 channelName: data.channelName,
-                                emergencyType: this.selectedEmergencyType
+                                emergencyType: this.selectedEmergencyType,
+                                urgencyLevel: callPayload.urgencyLevel
                             });
+                            this.debugLog('📡 Socket event emitted: call-initiated');
                         }
                     } else {
-                        this.showError(data.error || 'Failed to initiate call');
+                        throw new Error(data.error || 'Failed to initiate call');
                     }
                 } catch (error) {
                     this.debugLog(`❌ Call initiation error: ${error.message}`, 'error');
-                    this.showError('Network error. Please try again.');
+                    this.showError(`Failed to initiate call: ${error.message}`);
                 } finally {
                     this.elements.initiateCallBtn.disabled = false;
                     this.selectEmergencyType(this.selectedEmergencyType); // Restore button text
                 }
+            }
+
+            getUrgencyLevel(emergencyType) {
+                const urgencyMap = {
+                    'accident': 'critical',
+                    'theft': 'high',
+                    'breakdown': 'medium',
+                    'general': 'low'
+                };
+                return urgencyMap[emergencyType] || 'medium';
             }
 
             showCallInterface() {
@@ -897,8 +1406,10 @@
                 // Update call interface with vehicle info
                 if (this.vehicleInfo) {
                     this.elements.callVehicleAvatar.textContent = this.elements.vehicleAvatar.textContent;
-                    this.elements.callVehicleTitle.textContent = 
-                        `${this.vehicleInfo.device?.deviceInfo?.model} (${this.vehicleInfo.device?.deviceId})`;
+                    
+                    const deviceInfo = this.vehicleInfo.device?.deviceInfo || {};
+                    const deviceId = this.vehicleInfo.device?.deviceId || 'Unknown';
+                    this.elements.callVehicleTitle.textContent = `${deviceInfo.model || 'Device'} (${deviceId})`;
                 }
                 
                 // Show emergency type
@@ -934,7 +1445,7 @@
                         this.callData.token,
                         this.callData.callerUID
                     );
-                    this.debugLog('✅ Successfully joined Agora channel');
+                    this.debugLog(`✅ Successfully joined Agora channel: ${this.callData.channelName}`);
 
                     this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
                     await this.agoraClient.publish([this.localAudioTrack]);
@@ -954,10 +1465,14 @@
                         this.debugLog(`👋 Vehicle owner left: ${user.uid}`, 'warning');
                     });
 
+                    this.agoraClient.on("connection-state-changed", (curState, revState) => {
+                        this.debugLog(`🔄 Agora connection state: ${revState} → ${curState}`);
+                    });
+
                     this.debugLog('✅ Agora initialized successfully', 'success');
                 } catch (error) {
                     this.debugLog(`❌ Agora initialization error: ${error.message}`, 'error');
-                    this.showError('Failed to initialize voice call');
+                    this.showError(`Failed to initialize voice call: ${error.message}`);
                 }
             }
 
@@ -977,6 +1492,7 @@
             handleCallRejected(data) {
                 this.debugLog(`❌ Call rejected: ${JSON.stringify(data)}`, 'error');
                 this.updateCallStatus('Call was declined', 'status-ended');
+                this.showError('The vehicle owner declined your call. You may try again later.');
                 this.cleanup();
             }
 
@@ -992,6 +1508,11 @@
                 const pollStatus = async () => {
                     try {
                         const response = await fetch(`http://localhost:5000/api/calls/${this.callData.callId}/status`);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        
                         const data = await response.json();
                         
                         if (data.success) {
@@ -1009,6 +1530,11 @@
                                 case 'ended':
                                     this.handleCallEnded(data);
                                     return;
+                                case 'timeout':
+                                    this.debugLog('⏰ Call timed out', 'warning');
+                                    this.updateCallStatus('Call timed out - No answer', 'status-ended');
+                                    this.cleanup();
+                                    return;
                             }
                         }
                         
@@ -1017,7 +1543,9 @@
                         }
                     } catch (error) {
                         this.debugLog(`❌ Status polling error: ${error.message}`, 'error');
-                        this.statusPollingInterval = setTimeout(pollStatus, 5000);
+                        if (this.callData && !this.isCallActive) {
+                            this.statusPollingInterval = setTimeout(pollStatus, 5000);
+                        }
                     }
                 };
                 
@@ -1044,6 +1572,8 @@
                 
                 this.elements.muteBtn.classList.toggle('muted', this.isMuted);
                 this.elements.muteBtn.textContent = this.isMuted ? '🔇' : '🎤';
+                this.elements.muteBtn.title = this.isMuted ? 'Unmute' : 'Mute';
+                
                 this.debugLog(`🎤 Microphone ${this.isMuted ? 'muted' : 'unmuted'}`);
             }
 
@@ -1055,7 +1585,7 @@
                 try {
                     const duration = this.callStartTime ? Math.floor((Date.now() - this.callStartTime) / 1000) : 0;
                     
-                    await fetch(`http://localhost:5000/api/calls/${this.callData.callId}/end`, {
+                    const response = await fetch(`http://localhost:5000/api/calls/${this.callData.callId}/end`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -1072,6 +1602,8 @@
                             participantId: this.callData.receiver?.userId
                         });
                     }
+
+                    this.debugLog(`✅ Call ended successfully. Duration: ${duration}s`);
                 } catch (error) {
                     this.debugLog(`❌ Error ending call: ${error.message}`, 'error');
                 }
@@ -1109,9 +1641,15 @@
 
                 this.debugLog('✅ Cleanup completed');
 
+                // Show option to make another call
                 setTimeout(() => {
                     if (confirm('Call ended. Would you like to make another call to this vehicle?')) {
                         location.reload();
+                    } else {
+                        // Reset to initial state
+                        this.elements.callInterface.style.display = 'none';
+                        this.elements.vehicleInfoSection.style.display = 'block';
+                        this.selectEmergencyType('general');
                     }
                 }, 2000);
             }
@@ -1125,6 +1663,26 @@
         // Initialize the app when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
             window.emergencyCallerApp = new EmergencyCallerApp();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (window.emergencyCallerApp) {
+                window.emergencyCallerApp.debugLog(`👁️ Page visibility: ${document.hidden ? 'hidden' : 'visible'}`);
+            }
+        });
+
+        // Handle online/offline status
+        window.addEventListener('online', () => {
+            if (window.emergencyCallerApp) {
+                window.emergencyCallerApp.debugLog('🌐 Connection restored', 'success');
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            if (window.emergencyCallerApp) {
+                window.emergencyCallerApp.debugLog('📡 Connection lost', 'error');
+            }
         });
     </script>
 </body>
