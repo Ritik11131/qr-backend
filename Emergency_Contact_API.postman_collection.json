@@ -28,11 +28,31 @@
     }
   ],
   "variable": [
-    { "key": "base_url", "value": "http://localhost:5000/api", "type": "string" },
-    { "key": "auth_token", "value": "", "type": "string" },
-    { "key": "qr_id", "value": "", "type": "string" },
-    { "key": "device_id", "value": "", "type": "string" },
-    { "key": "call_id", "value": "", "type": "string" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "qr_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "call_id",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
     {
@@ -43,14 +63,32 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"count\": 100,\n  \"batchNumber\": \"BATCH_001\",\n  \"qrType\": \"sticker\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/admin/qr/bulk-generate", "host": ["{{base_url}}"], "path": ["admin", "qr", "bulk-generate"] }
+            "url": {
+              "raw": "{{base_url}}/admin/qr/bulk-generate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "qr",
+                "bulk-generate"
+              ]
+            }
           }
         },
         {
@@ -58,9 +96,23 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/admin/qr/inventory", "host": ["{{base_url}}"], "path": ["admin", "qr", "inventory"] }
+            "url": {
+              "raw": "{{base_url}}/admin/qr/inventory",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "qr",
+                "inventory"
+              ]
+            }
           }
         },
         {
@@ -68,9 +120,23 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/admin/qr/analytics", "host": ["{{base_url}}"], "path": ["admin", "qr", "analytics"] }
+            "url": {
+              "raw": "{{base_url}}/admin/qr/analytics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "qr",
+                "analytics"
+              ]
+            }
           }
         },
         {
@@ -78,14 +144,33 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"Damaged\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/admin/qr/{{qr_id}}/status", "host": ["{{base_url}}"], "path": ["admin", "qr", "{{qr_id}}", "status"] }
+            "url": {
+              "raw": "{{base_url}}/admin/qr/{{qr_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "qr",
+                "{{qr_id}}",
+                "status"
+              ]
+            }
           }
         },
         {
@@ -93,9 +178,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/admin/qr/export/BATCH_001", "host": ["{{base_url}}"], "path": ["admin", "qr", "export", "BATCH_001"] }
+            "url": {
+              "raw": "{{base_url}}/admin/qr/export/BATCH_001",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "qr",
+                "export",
+                "BATCH_001"
+              ]
+            }
           }
         }
       ]
@@ -107,7 +207,17 @@
           "name": "Get QR Info (Public)",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/qr/info/{{qr_id}}", "host": ["{{base_url}}"], "path": ["qr", "info", "{{qr_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/qr/info/{{qr_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "info",
+                "{{qr_id}}"
+              ]
+            }
           }
         },
         {
@@ -115,14 +225,31 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"deviceInfo\": {\n    \"model\": \"GPS-2000\",\n    \"serialNumber\": \"SN123456789\"\n  },\n  // Optional: provide deviceId or let the system generate one\n  \"deviceId\": \"optional-device-id-here\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/qr/link", "host": ["{{base_url}}"], "path": ["qr", "link"] }
+            "url": {
+              "raw": "{{base_url}}/qr/link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "link"
+              ]
+            }
           }
         },
         {
@@ -130,9 +257,22 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/qr/my-devices", "host": ["{{base_url}}"], "path": ["qr", "my-devices"] }
+            "url": {
+              "raw": "{{base_url}}/qr/my-devices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "my-devices"
+              ]
+            }
           }
         },
         {
@@ -140,14 +280,33 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"emergencyContacts\": [{\n    \"name\": \"Jane Doe\",\n    \"phone\": \"+1234567890\",\n    \"relationship\": \"spouse\",\n    \"priority\": 1\n  }],\n  \"autoAnswer\": true\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/qr/device/{{device_id}}/settings", "host": ["{{base_url}}"], "path": ["qr", "device", "{{device_id}}", "settings"] }
+            "url": {
+              "raw": "{{base_url}}/qr/device/{{device_id}}/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "device",
+                "{{device_id}}",
+                "settings"
+              ]
+            }
           }
         },
         {
@@ -155,14 +314,32 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"reason\": \"Vehicle sold\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/qr/unlink/{{qr_id}}", "host": ["{{base_url}}"], "path": ["qr", "unlink", "{{qr_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/qr/unlink/{{qr_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "unlink",
+                "{{qr_id}}"
+              ]
+            }
           }
         },
         {
@@ -170,9 +347,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/qr/device/{{device_id}}/calls", "host": ["{{base_url}}"], "path": ["qr", "device", "{{device_id}}", "calls"] }
+            "url": {
+              "raw": "{{base_url}}/qr/device/{{device_id}}/calls",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "device",
+                "{{device_id}}",
+                "calls"
+              ]
+            }
           }
         }
       ]
@@ -184,7 +376,17 @@
           "name": "Get QR Info (Public)",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/qr/info/{{qr_id}}", "host": ["{{base_url}}"], "path": ["qr", "info", "{{qr_id}}"] }
+            "url": {
+              "raw": "{{base_url}}/qr/info/{{qr_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "qr",
+                "info",
+                "{{qr_id}}"
+              ]
+            }
           }
         },
         {
@@ -194,9 +396,98 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"callType\": \"audio\",\n  \"callerInfo\": {\n    \"name\": \"Good Samaritan\",\n    \"phone\": \"+1911\",\n    \"location\": \"Interstate 95, Mile 42\",\n    \"description\": \"Vehicle breakdown, driver needs assistance\"\n  },\n  \"emergencyType\": \"breakdown\",\n  \"urgencyLevel\": \"medium\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/calls/initiate", "host": ["{{base_url}}"], "path": ["calls", "initiate"] }
+            "url": {
+              "raw": "{{base_url}}/calls/initiate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "calls",
+                "initiate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Answer Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answeredBy\": \"{{user_id}}\",\n  \"answeredAt\": \"{{timestamp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/calls/{{call_id}}/answer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "calls",
+                "{{call_id}}",
+                "answer"
+              ]
+            }
+          }
+        },
+        {
+          "name": "End Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endedBy\": \"caller\",\n  \"endedAt\": \"{{timestamp}}\",\n  \"callQuality\": {\n    \"rating\": 5,\n    \"feedback\": \"Good call quality.\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/calls/{{call_id}}/end",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "calls",
+                "{{call_id}}",
+                "end"
+              ]
+            }
           }
         }
       ]
