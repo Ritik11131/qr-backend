@@ -4,7 +4,8 @@ const QRCode = require('../models/QRCode');
 const Device = require('../models/Device');
 const { auth } = require('../middleware/auth');
 const { generalRateLimit } = require('../middleware/rateLimiter');
-const { validateQRLink } = require('../middleware/validation');
+const { validateQRLink, validateDeviceSettings } = require('../middleware/validation');
+const config = require('../config/app');
 
 const router = express.Router();
 
@@ -56,6 +57,12 @@ router.get('/info/:qrId', generalRateLimit, async (req, res) => {
       });
     }
 
+    // Get available call methods
+    const maskedCallingService = require('../services/maskedCallingService');
+    const availableCallMethods = ['direct'];
+    if (maskedCallingService.isAvailable()) {
+      availableCallMethods.push('masked');
+    }
     // Return public information (owner info is not available)
     res.json({
       success: true,
@@ -72,7 +79,8 @@ router.get('/info/:qrId', generalRateLimit, async (req, res) => {
           settings: device.settings
         },
         emergencyInfo: qrCode.emergencyInfo,
-        allowAnonymousCalls: device.settings.allowAnonymousCalls
+        allowAnonymousCalls: device.settings.allowAnonymousCalls,
+        availableCallMethods
       }
     });
   } catch (error) {
@@ -131,6 +139,14 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
 
     // Use provided deviceId or generate a new one
     const deviceId = providedDeviceId || uuidv4();
+    
+    // Get available call methods for default settings
+    const maskedCallingService = require('../services/maskedCallingService');
+    const availableCallMethods = ['direct'];
+    if (maskedCallingService.isAvailable()) {
+      availableCallMethods.push('masked');
+    }
+    
     const device = new Device({
       deviceId,
       deviceInfo: {
@@ -142,7 +158,10 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
       },
       status: 'active',
       settings: {
-        allowAnonymousCalls: true
+        allowAnonymousCalls: true,
+        emergencyContacts: [],
+        autoAnswer: false,
+        availableCallMethods
       }
     });
 
@@ -175,7 +194,8 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
         status: device.status,
         settings: device.settings
       },
-      emergencyUrl: qrCode.qrUrl
+      emergencyUrl: qrCode.qrUrl,
+      availableCallMethods
     });
   } catch (error) {
     console.error('❌ Error linking QR code:', error);
@@ -208,6 +228,12 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
       'linkedTo.deviceId': { $in: deviceIds } 
     });
 
+    // Get available call methods
+    const maskedCallingService = require('../services/maskedCallingService');
+    const availableCallMethods = ['direct'];
+    if (maskedCallingService.isAvailable()) {
+      availableCallMethods.push('masked');
+    }
     // Combine device and QR information
     const devicesWithQR = devices.map(device => {
       const qrCode = qrCodes.find(qr => qr.linkedTo.deviceId === device.deviceId);
@@ -223,7 +249,8 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
           stats: qrCode.stats,
           emergencyInfo: qrCode.emergencyInfo
         } : null,
-        createdAt: device.createdAt
+        createdAt: device.createdAt,
+        availableCallMethods
       };
     });
 
@@ -240,8 +267,9 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
         totalPages: Math.ceil(totalDevices / limit),
         totalItems: totalDevices,
         itemsPerPage: Number(limit)
-      }
-      // No summary field, as stats are no longer present
+      },
+      // No summary field, as stats are no longer present,
+      availableCallMethods
     });
   } catch (error) {
     console.error('❌ Error getting user devices:', error);
@@ -253,10 +281,10 @@ router.get('/my-devices', auth, generalRateLimit, async (req, res) => {
 });
 
 // Update device settings (AUTH REQUIRED)
-router.put('/device/:deviceId/settings', auth, generalRateLimit, async (req, res) => {
+router.put('/device/:deviceId/settings', auth, generalRateLimit, validateDeviceSettings, async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const { emergencyContacts, autoAnswer, allowAnonymousCalls } = req.body;
+    const { emergencyContacts, autoAnswer, allowAnonymousCalls, callMethods } = req.body;
     const userId = req.user.user_id;
 
     console.log(`⚙️ Updating settings for device: ${deviceId}`);
@@ -273,10 +301,24 @@ router.put('/device/:deviceId/settings', auth, generalRateLimit, async (req, res
       });
     }
 
+    // Get available call methods
+    const maskedCallingService = require('../services/maskedCallingService');
+    const availableCallMethods = ['direct'];
+    if (maskedCallingService.isAvailable()) {
+      availableCallMethods.push('masked');
+    }
     // Update settings (add fields if not present)
     if (emergencyContacts !== undefined) device.settings.emergencyContacts = emergencyContacts;
     if (autoAnswer !== undefined) device.settings.autoAnswer = autoAnswer;
     if (allowAnonymousCalls !== undefined) device.settings.allowAnonymousCalls = allowAnonymousCalls;
+    
+    // Validate and update call methods
+    if (callMethods !== undefined) {
+      const validCallMethods = callMethods.filter(method => availableCallMethods.includes(method));
+      device.settings.availableCallMethods = validCallMethods.length > 0 ? validCallMethods : ['direct'];
+    } else if (!device.settings.availableCallMethods) {
+      device.settings.availableCallMethods = availableCallMethods;
+    }
 
     await device.save();
 
@@ -288,7 +330,8 @@ router.put('/device/:deviceId/settings', auth, generalRateLimit, async (req, res
         settings: device.settings,
         owner: device.owner,
         status: device.status
-      }
+      },
+      availableCallMethods
     });
   } catch (error) {
     console.error('❌ Error updating device settings:', error);
@@ -370,7 +413,7 @@ router.post('/unlink/:qrId', auth, generalRateLimit, async (req, res) => {
 router.get('/device/:deviceId/calls', auth, generalRateLimit, async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const { page = 1, limit = 20, emergencyOnly } = req.query;
+    const { page = 1, limit = 20, emergencyOnly, callMethod } = req.query;
     const userId = req.user.user_id;
 
     // Verify device ownership
@@ -392,6 +435,9 @@ router.get('/device/:deviceId/calls', auth, generalRateLimit, async (req, res) =
     if (emergencyOnly === 'true') {
       filter['callerInfo.emergencyType'] = { $ne: 'general' };
     }
+    if (callMethod && ['direct', 'masked'].includes(callMethod)) {
+      filter.callMethod = callMethod;
+    }
 
     const calls = await Call.find(filter)
       .sort({ createdAt: -1 })
@@ -404,13 +450,19 @@ router.get('/device/:deviceId/calls', auth, generalRateLimit, async (req, res) =
       success: true,
       device: {
         deviceId: device.deviceId,
-        vehicle: device.vehicle
+        deviceInfo: device.deviceInfo
       },
       calls,
       pagination: {
         currentPage: Number(page),
         totalPages: Math.ceil(totalCalls / limit),
         totalItems: totalCalls
+      },
+      summary: {
+        totalCalls,
+        emergencyCalls: calls.filter(c => c.callerInfo.emergencyType !== 'general').length,
+        directCalls: calls.filter(c => c.callMethod === 'direct').length,
+        maskedCalls: calls.filter(c => c.callMethod === 'masked').length
       }
     });
   } catch (error) {

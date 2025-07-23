@@ -47,6 +47,11 @@ const deviceSchema = new mongoose.Schema({
     autoAnswer: {
       type: Boolean,
       default: false
+    },
+    availableCallMethods: {
+      type: [String],
+      enum: ['direct', 'masked'],
+      default: ['direct']
     }
   }
 }, {
@@ -55,5 +60,6 @@ const deviceSchema = new mongoose.Schema({
 
 deviceSchema.index({ 'owner.userId': 1, status: 1 });
 deviceSchema.index({ createdAt: -1 });
+deviceSchema.index({ 'settings.availableCallMethods': 1 });
 
 module.exports = mongoose.model('Device', deviceSchema);

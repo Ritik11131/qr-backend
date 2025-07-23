@@ -1,7 +1,8 @@
 const express = require('express');
-const { generateAgoraToken } = require('../services/agoraService');
+const { generateAgoraToken, getAgoraConfig } = require('../services/agoraService');
 const { auth } = require('../middleware/auth');
 const { generalRateLimit } = require('../middleware/rateLimiter');
+const config = require('../config/app');
 
 const router = express.Router();
 
@@ -17,18 +18,27 @@ router.post('/token', auth, generalRateLimit, async (req, res) => {
       });
     }
     
-    const token = generateAgoraToken(channelName, uid, role);
+    try {
+      const token = generateAgoraToken(channelName, uid, role);
+      
+      console.log(`🎤 Agora token generated for user ${req.user.user_id}, channel: ${channelName}`);
+      
+      res.json({
+        success: true,
+        token,
+        appId: config.get('agora.appId'),
+        channelName,
+        uid,
+        expiresIn: `${config.get('agora.tokenExpiryTime')} seconds`
+      });
+    } catch (tokenError) {
+      console.error('❌ Agora token generation failed:', tokenError);
+      return res.status(500).json({ 
+        error: 'Failed to generate Agora token. Please check Agora configuration.',
+        code: 'AGORA_TOKEN_GENERATION_FAILED'
+      });
+    }
     
-    console.log(`🎤 Agora token generated for user ${req.user.userId}, channel: ${channelName}`);
-    
-    res.json({
-      success: true,
-      token,
-      appId: process.env.AGORA_APP_ID,
-      channelName,
-      uid,
-      expiresIn: '24 hours'
-    });
   } catch (error) {
     console.error('❌ Agora token generation error:', error);
     res.status(500).json({ 
@@ -41,10 +51,13 @@ router.post('/token', auth, generalRateLimit, async (req, res) => {
 // Get Agora app configuration
 router.get('/config', auth, generalRateLimit, async (req, res) => {
   try {
+    const agoraConfig = getAgoraConfig();
+    
     res.json({
       success: true,
       config: {
-        appId: process.env.AGORA_APP_ID,
+        appId: agoraConfig.appId,
+        isConfigured: agoraConfig.isConfigured,
         features: {
           audio: true,
           video: true,
@@ -52,8 +65,8 @@ router.get('/config', auth, generalRateLimit, async (req, res) => {
           streaming: false
         },
         limits: {
-          maxChannelUsers: 17,
-          tokenExpiryHours: 24
+          maxChannelUsers: agoraConfig.maxChannelUsers,
+          tokenExpirySeconds: agoraConfig.tokenExpiryTime
         }
       }
     });

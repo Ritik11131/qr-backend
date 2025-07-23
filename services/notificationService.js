@@ -1,14 +1,20 @@
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
-const fetch = require('node-fetch');
+const config = require('../config/app');
 const { checkTimeSync } = require('../services/timeSync');
 
+// Use node-fetch with proper import
+let fetch;
+(async () => {
+  const { default: nodeFetch } = await import('node-fetch');
+  fetch = nodeFetch;
+})();
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
   try {
-    // Load service account JSON from config directory
-    const serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
+    const firebaseConfig = config.get('firebase');
+    const serviceAccountPath = firebaseConfig.serviceAccountPath;
     
     // Check if service account file exists
     if (!fs.existsSync(serviceAccountPath)) {
@@ -25,12 +31,14 @@ if (!admin.apps.length) {
     }
     
     // Log initialization details for debugging
-    console.log('🔧 Firebase Admin SDK Initialization:');
-    console.log('   📁 Service account path:', serviceAccountPath);
-    console.log('   🔑 Service account email:', serviceAccount.client_email);
-    console.log('   🆔 Project ID:', serviceAccount.project_id);
-    console.log('   🕐 Current server time:', new Date().toISOString());
-    console.log('   🌐 Current UTC time:', new Date().toUTCString());
+    if (config.isDevelopment()) {
+      console.log('🔧 Firebase Admin SDK Initialization:');
+      console.log('   📁 Service account path:', serviceAccountPath);
+      console.log('   🔑 Service account email:', serviceAccount.client_email);
+      console.log('   🆔 Project ID:', serviceAccount.project_id);
+      console.log('   🕐 Current server time:', new Date().toISOString());
+      console.log('   🌐 Current UTC time:', new Date().toUTCString());
+    }
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -40,19 +48,24 @@ if (!admin.apps.length) {
     console.log('✅ Firebase Admin SDK initialized successfully');
   } catch (error) {
     console.error('❌ Firebase initialization error:', error.message);
-    console.error('');
-    console.error('🔧 Troubleshooting Firebase Authentication Issues:');
-    console.error('   1. Check if your server time is synchronized');
-    console.error('   2. Verify your service account key is valid at:');
-    console.error('      https://console.firebase.google.com/iam-admin/serviceaccounts/project');
-    console.error('   3. Generate a new service account key if needed');
-    console.error('   4. Ensure the service account has proper permissions');
-    console.error('');
+    
+    if (config.isDevelopment()) {
+      console.error('');
+      console.error('🔧 Troubleshooting Firebase Authentication Issues:');
+      console.error('   1. Check if your server time is synchronized');
+      console.error('   2. Verify your service account key is valid at:');
+      console.error('      https://console.firebase.google.com/iam-admin/serviceaccounts/project');
+      console.error('   3. Generate a new service account key if needed');
+      console.error('   4. Ensure the service account has proper permissions');
+      console.error('');
+    }
     
     // Check time synchronization
     checkTimeSync();
     
-    throw error; // Re-throw to prevent app from starting with invalid config
+    if (config.isProduction()) {
+      throw error; // Re-throw to prevent app from starting with invalid config in production
+    }
   }
 }
 
@@ -87,10 +100,17 @@ const getMaskedToken = (token) => {
  */
 const fetchDeviceTokens = async (userId) => {
   try {
+    if (!fetch) {
+      throw new Error('Fetch is not available. Please ensure node-fetch is properly imported.');
+    }
+
+    const tokenApiUrl = config.get('notifications.tokenApiUrl');
+    const timeout = config.get('notifications.timeout');
+    
     console.log(`🔍 Fetching device tokens for user ID: ${userId}`);
     
-    const response = await fetch(`https://api.torqiot.in/api/token/GetTokenByUserId/${userId}`, {
-      timeout: 10000 // 10 second timeout
+    const response = await fetch(`${tokenApiUrl}/${userId}`, {
+      timeout
     });
     
     if (!response.ok) {
@@ -98,12 +118,15 @@ const fetchDeviceTokens = async (userId) => {
     }
     
     const result = await response.json();
-    console.log('📱 Token API response structure:', {
-      hasResult: !!result.result,
-      hasData: !!result.data,
-      hasAndroid: !!(result.data && result.data.android),
-      androidTokenCount: result.data && result.data.android ? result.data.android.length : 0
-    });
+    
+    if (config.isDevelopment()) {
+      console.log('📱 Token API response structure:', {
+        hasResult: !!result.result,
+        hasData: !!result.data,
+        hasAndroid: !!(result.data && result.data.android),
+        androidTokenCount: result.data && result.data.android ? result.data.android.length : 0
+      });
+    }
     
     if (!result.result || !result.data || !Array.isArray(result.data.android)) {
       throw new Error('Invalid token API response structure');
@@ -118,7 +141,7 @@ const fetchDeviceTokens = async (userId) => {
     console.log(`   ✅ Valid tokens: ${validTokens.length}`);
     console.log(`   ❌ Invalid tokens: ${invalidTokens.length}`);
     
-    if (invalidTokens.length > 0) {
+    if (invalidTokens.length > 0 && config.isDevelopment()) {
       console.log(`   🗑️  Invalid tokens found:`, invalidTokens.map(t => t || 'null/undefined'));
     }
     
@@ -126,7 +149,9 @@ const fetchDeviceTokens = async (userId) => {
       throw new Error('No valid device tokens found for this user');
     }
     
-    console.log(`   📱 Valid tokens:`, validTokens.map(getMaskedToken));
+    if (config.isDevelopment()) {
+      console.log(`   📱 Valid tokens:`, validTokens.map(getMaskedToken));
+    }
     return validTokens;
     
   } catch (error) {
@@ -150,15 +175,19 @@ const sendToSingleToken = async (token, message) => {
       throw new Error('Invalid token format');
     }
     
-    console.log(`📤 Sending notification to token: ${maskedToken}`);
+    if (config.isDevelopment()) {
+      console.log(`📤 Sending notification to token: ${maskedToken}`);
+    }
     
     const response = await admin.messaging().send({
       ...message,
       token
     });
     
-    console.log(`✅ Notification sent successfully to: ${maskedToken}`);
-    console.log(`   📋 Message ID: ${response}`);
+    if (config.isDevelopment()) {
+      console.log(`✅ Notification sent successfully to: ${maskedToken}`);
+      console.log(`   📋 Message ID: ${response}`);
+    }
     
     return { 
       success: true, 
@@ -173,17 +202,19 @@ const sendToSingleToken = async (token, message) => {
     console.error(`   💬 Error message: ${error.message}`);
     
     // Provide specific guidance based on error type
-    if (error.code === 'messaging/invalid-registration-token') {
-      console.error(`   💡 Token ${maskedToken} is invalid and should be removed from database`);
-    } else if (error.code === 'messaging/registration-token-not-registered') {
-      console.error(`   💡 Token ${maskedToken} is no longer registered and should be removed`);
-    } else if (error.code === 'messaging/invalid-argument') {
-      console.error(`   💡 Invalid message format or token format issue`);
-    } else if (error.message.includes('invalid_grant') || error.message.includes('Invalid JWT Signature')) {
-      console.error(`   🔧 Firebase credential issue detected:`);
-      console.error(`      - Check server time synchronization`);
-      console.error(`      - Verify service account key is not revoked`);
-      console.error(`      - Generate new service account key if needed`);
+    if (config.isDevelopment()) {
+      if (error.code === 'messaging/invalid-registration-token') {
+        console.error(`   💡 Token ${maskedToken} is invalid and should be removed from database`);
+      } else if (error.code === 'messaging/registration-token-not-registered') {
+        console.error(`   💡 Token ${maskedToken} is no longer registered and should be removed`);
+      } else if (error.code === 'messaging/invalid-argument') {
+        console.error(`   💡 Invalid message format or token format issue`);
+      } else if (error.message.includes('invalid_grant') || error.message.includes('Invalid JWT Signature')) {
+        console.error(`   🔧 Firebase credential issue detected:`);
+        console.error(`      - Check server time synchronization`);
+        console.error(`      - Verify service account key is not revoked`);
+        console.error(`      - Generate new service account key if needed`);
+      }
     }
     
     return { 
@@ -203,15 +234,27 @@ const sendToSingleToken = async (token, message) => {
  * @returns {Promise<object>} - Result of notification sending.
  */
 const sendPushNotification = async (userId, payload) => {
+  if (!config.get('notifications.enabled')) {
+    console.log('📵 Notifications are disabled');
+    return {
+      success: false,
+      error: 'Notifications are disabled',
+      totalSent: 0,
+      totalFailed: 1
+    };
+  }
+
   const startTime = Date.now();
   
   try {
-    console.log('');
-    console.log('🚀 Starting push notification process...');
-    console.log(`   👤 User ID: ${userId}`);
-    console.log(`   📝 Title: ${payload.title}`);
-    console.log(`   💬 Body: ${payload.body}`);
-    console.log(`   📊 Data keys: ${Object.keys(payload.data || {}).join(', ') || 'none'}`);
+    if (config.isDevelopment()) {
+      console.log('');
+      console.log('🚀 Starting push notification process...');
+      console.log(`   👤 User ID: ${userId}`);
+      console.log(`   📝 Title: ${payload.title}`);
+      console.log(`   💬 Body: ${payload.body}`);
+      console.log(`   📊 Data keys: ${Object.keys(payload.data || {}).join(', ') || 'none'}`);
+    }
     
     // Verify Firebase Admin is properly initialized
     if (!admin.apps.length) {
@@ -270,14 +313,16 @@ const sendPushNotification = async (userId, payload) => {
     const failed = results.filter(r => !r.success);
     const duration = Date.now() - startTime;
 
-    console.log('');
-    console.log('📊 NOTIFICATION SUMMARY:');
-    console.log(`   ⏱️  Duration: ${duration}ms`);
-    console.log(`   ✅ Successful: ${successful.length}`);
-    console.log(`   ❌ Failed: ${failed.length}`);
-    console.log(`   📈 Success rate: ${((successful.length / results.length) * 100).toFixed(1)}%`);
+    if (config.isDevelopment()) {
+      console.log('');
+      console.log('📊 NOTIFICATION SUMMARY:');
+      console.log(`   ⏱️  Duration: ${duration}ms`);
+      console.log(`   ✅ Successful: ${successful.length}`);
+      console.log(`   ❌ Failed: ${failed.length}`);
+      console.log(`   📈 Success rate: ${((successful.length / results.length) * 100).toFixed(1)}%`);
+    }
 
-    if (successful.length > 0) {
+    if (successful.length > 0 && config.isDevelopment()) {
       console.log('');
       console.log('✅ SUCCESSFUL NOTIFICATIONS:');
       successful.forEach((result, index) => {
@@ -285,7 +330,7 @@ const sendPushNotification = async (userId, payload) => {
       });
     }
 
-    if (failed.length > 0) {
+    if (failed.length > 0 && config.isDevelopment()) {
       console.log('');
       console.log('❌ FAILED NOTIFICATIONS:');
       failed.forEach((result, index) => {
@@ -309,7 +354,9 @@ const sendPushNotification = async (userId, payload) => {
       });
     }
 
-    console.log('');
+    if (config.isDevelopment()) {
+      console.log('');
+    }
 
     return {
       success: successful.length > 0,
@@ -332,7 +379,7 @@ const sendPushNotification = async (userId, payload) => {
     console.error(`   💬 Error: ${error.message}`);
     
     // Provide specific guidance based on error type
-    if (error.message.includes('invalid_grant') || error.message.includes('Invalid JWT Signature')) {
+    if ((error.message.includes('invalid_grant') || error.message.includes('Invalid JWT Signature')) && config.isDevelopment()) {
       console.error('');
       console.error('🔧 FIREBASE AUTHENTICATION FIX REQUIRED:');
       console.error('   1. Sync your server time:');
@@ -341,7 +388,7 @@ const sendPushNotification = async (userId, payload) => {
       console.error('   2. Or generate a new service account key:');
       console.error('      https://console.firebase.google.com/project/_/settings/serviceaccounts/adminsdk');
       console.error('   3. Replace the firebase-service-account.json file');
-    } else if (error.message.includes('fetch device tokens')) {
+    } else if (error.message.includes('fetch device tokens') && config.isDevelopment()) {
       console.error('');
       console.error('🔧 TOKEN API FIX REQUIRED:');
       console.error('   1. Check if the token API is accessible');
@@ -349,44 +396,81 @@ const sendPushNotification = async (userId, payload) => {
       console.error('   3. Check API endpoint URL and authentication');
     }
     
-    console.error('');
+    if (config.isDevelopment()) {
+      console.error('');
+    }
     throw error;
   }
 };
 
 const sendBulkNotification = async (userIds, payload) => {
+  if (!config.get('notifications.enabled')) {
+    console.log('📵 Bulk notifications are disabled');
+    return {
+      success: false,
+      error: 'Notifications are disabled',
+      totalUsers: userIds.length,
+      totalSuccessful: 0,
+      totalFailed: userIds.length,
+      results: userIds.map(userId => ({
+        userId,
+        success: false,
+        error: 'Notifications are disabled',
+        totalSent: 0,
+        totalFailed: 1
+      }))
+    };
+  }
+
   console.log('🚀 Starting bulk notification process...');
   console.log(`   👥 User count: ${userIds.length}`);
   
   const results = [];
   let totalSuccessful = 0;
   let totalFailed = 0;
+  const maxRetries = config.get('notifications.retryAttempts');
   
   for (const userId of userIds) {
-    try {
-      const result = await sendPushNotification(userId, payload);
-      results.push({ userId, ...result });
-      totalSuccessful += result.totalSent;
-      totalFailed += result.totalFailed;
-    } catch (error) {
-      console.error(`❌ Failed to send notification to user ${userId}:`, error.message);
-      results.push({ 
-        userId, 
-        success: false, 
-        error: error.message,
-        totalSent: 0,
-        totalFailed: 1
-      });
-      totalFailed++;
+    let attempt = 0;
+    let success = false;
+    
+    while (attempt < maxRetries && !success) {
+      try {
+        const result = await sendPushNotification(userId, payload);
+        results.push({ userId, ...result });
+        totalSuccessful += result.totalSent;
+        totalFailed += result.totalFailed;
+        success = true;
+      } catch (error) {
+        attempt++;
+        console.error(`❌ Failed to send notification to user ${userId} (attempt ${attempt}/${maxRetries}):`, error.message);
+        
+        if (attempt >= maxRetries) {
+          results.push({ 
+            userId, 
+            success: false, 
+            error: error.message,
+            totalSent: 0,
+            totalFailed: 1,
+            attempts: attempt
+          });
+          totalFailed++;
+        } else {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
   }
   
-  console.log('');
-  console.log('📊 BULK NOTIFICATION SUMMARY:');
-  console.log(`   👥 Users processed: ${userIds.length}`);
-  console.log(`   ✅ Total successful notifications: ${totalSuccessful}`);
-  console.log(`   ❌ Total failed notifications: ${totalFailed}`);
-  console.log('');
+  if (config.isDevelopment()) {
+    console.log('');
+    console.log('📊 BULK NOTIFICATION SUMMARY:');
+    console.log(`   👥 Users processed: ${userIds.length}`);
+    console.log(`   ✅ Total successful notifications: ${totalSuccessful}`);
+    console.log(`   ❌ Total failed notifications: ${totalFailed}`);
+    console.log('');
+  }
   
   return {
     success: totalSuccessful > 0,
@@ -397,7 +481,21 @@ const sendBulkNotification = async (userIds, payload) => {
   };
 };
 
+/**
+ * Get notification service configuration
+ * @returns {Object} - Service configuration
+ */
+const getNotificationConfig = () => {
+  return {
+    enabled: config.get('notifications.enabled'),
+    tokenApiUrl: config.get('notifications.tokenApiUrl'),
+    retryAttempts: config.get('notifications.retryAttempts'),
+    timeout: config.get('notifications.timeout'),
+    firebaseConfigured: admin.apps.length > 0
+  };
+};
 module.exports = {
   sendPushNotification,
-  sendBulkNotification
+  sendBulkNotification,
+  getNotificationConfig
 };

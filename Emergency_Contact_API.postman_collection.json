@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "QR Vehicle Emergency System API - JWT-Only Collection",
-    "description": "API collection for QR Vehicle Emergency System.\n\n**Authentication:**\n- Use a JWT with role: '1' (admin) for admin endpoints.\n- Use a JWT with role: '2' (user) for user endpoints.\n- Example Admin JWT payload:\n```json\n{\n  \"unique_name\": \"Balin Admin\",\n  \"role\": \"1\",\n  \"user_id\": \"2\",\n  \"parent_id\": \"1\",\n  \"time_zone\": \"05:30\",\n  \"nbf\": 1753093302,\n  \"exp\": 1753698102,\n  \"iat\": 1753093302\n}\n```\n- Example User JWT payload:\n```json\n{\n  \"unique_name\": \"torqdemo\",\n  \"role\": \"2\",\n  \"user_id\": \"10\",\n  \"parent_id\": \"2\",\n  \"time_zone\": \"Asia/Kolkata\",\n  \"nbf\": 1753102241,\n  \"exp\": 1753707041,\n  \"iat\": 1753102241\n}\n```\n\nSet the `auth_token` variable to your JWT for testing.",
+    "name": "QR Vehicle Emergency System API - Complete Collection v2.0",
+    "description": "Complete API collection for QR Vehicle Emergency System with masked calling support.\n\n**Authentication:**\n- Use a JWT with role: '1' (admin) for admin endpoints.\n- Use a JWT with role: '2' (user) for user endpoints.\n- Some endpoints are public (no auth required).\n\n**Example Admin JWT payload:**\n```json\n{\n  \"unique_name\": \"Balin Admin\",\n  \"role\": \"1\",\n  \"user_id\": \"2\",\n  \"parent_id\": \"1\",\n  \"time_zone\": \"05:30\",\n  \"nbf\": 1753093302,\n  \"exp\": 1753698102,\n  \"iat\": 1753093302\n}\n```\n\n**Example User JWT payload:**\n```json\n{\n  \"unique_name\": \"torqdemo\",\n  \"role\": \"2\",\n  \"user_id\": \"10\",\n  \"parent_id\": \"2\",\n  \"time_zone\": \"Asia/Kolkata\",\n  \"nbf\": 1753102241,\n  \"exp\": 1753707041,\n  \"iat\": 1753102241\n}\n```\n\nSet the `auth_token` variable to your JWT for testing.",
     "version": "2.1.0",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -22,35 +22,152 @@
         "type": "text/javascript",
         "exec": [
           "// Set common headers",
-          "pm.request.headers.add({key: 'Content-Type', value: 'application/json'});"
+          "pm.request.headers.add({key: 'Content-Type', value: 'application/json'});",
+          "",
+          "// Auto-set timestamp for requests that need it",
+          "pm.globals.set('timestamp', new Date().toISOString());"
         ]
       }
     }
   ],
   "variable": [
-    { "key": "base_url", "value": "http://localhost:5000/api", "type": "string" },
-    { "key": "auth_token", "value": "", "type": "string" },
-    { "key": "qr_id", "value": "", "type": "string" },
-    { "key": "device_id", "value": "", "type": "string" },
-    { "key": "call_id", "value": "", "type": "string" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "api_url",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string",
+      "description": "JWT token for authentication"
+    },
+    {
+      "key": "qr_id",
+      "value": "QR_BATCH_001_000001",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "call_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batch_number",
+      "value": "BATCH_001",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "10",
+      "type": "string"
+    }
   ],
   "item": [
+    {
+      "name": "System Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check system health and status"
+          }
+        },
+        {
+          "name": "API Information",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api",
+              "host": ["{{base_url}}"],
+              "path": ["api"]
+            },
+            "description": "Get API information and available endpoints"
+          }
+        },
+        {
+          "name": "Configuration (Dev Only)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/config",
+              "host": ["{{base_url}}"],
+              "path": ["config"]
+            },
+            "description": "Get system configuration (development only)"
+          }
+        }
+      ]
+    },
     {
       "name": "Admin Flow (role: 1)",
       "item": [
         {
           "name": "Bulk Generate QR Codes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.qrCodes && response.qrCodes.length > 0) {",
+                  "        pm.globals.set('qr_id', response.qrCodes[0].qrId);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"count\": 100,\n  \"batchNumber\": \"BATCH_001\",\n  \"qrType\": \"sticker\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"count\": 100,\n  \"batchNumber\": \"{{batch_number}}\",\n  \"qrType\": \"sticker\",\n  \"notes\": \"Sample batch for testing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/admin/qr/bulk-generate", "host": ["{{base_url}}"], "path": ["admin", "qr", "bulk-generate"] }
+            "url": {
+              "raw": "{{api_url}}/admin/qr/bulk-generate",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "qr", "bulk-generate"]
+            },
+            "description": "Generate bulk QR codes (Admin only)"
           }
         },
         {
@@ -58,9 +175,42 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/admin/qr/inventory", "host": ["{{base_url}}"], "path": ["admin", "qr", "inventory"] }
+            "url": {
+              "raw": "{{api_url}}/admin/qr/inventory?page=1&limit=20&status=available",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "qr", "inventory"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "available"
+                },
+                {
+                  "key": "batchNumber",
+                  "value": "{{batch_number}}",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get QR code inventory with filtering options"
           }
         },
         {
@@ -68,9 +218,24 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/admin/qr/analytics", "host": ["{{base_url}}"], "path": ["admin", "qr", "analytics"] }
+            "url": {
+              "raw": "{{api_url}}/admin/qr/analytics?dateRange=30",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "qr", "analytics"],
+              "query": [
+                {
+                  "key": "dateRange",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get comprehensive QR analytics"
           }
         },
         {
@@ -78,51 +243,172 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"Damaged\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"QR code damaged during installation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/admin/qr/{{qr_id}}/status", "host": ["{{base_url}}"], "path": ["admin", "qr", "{{qr_id}}", "status"] }
+            "url": {
+              "raw": "{{api_url}}/admin/qr/{{qr_id}}/status",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "qr", "{{qr_id}}", "status"]
+            },
+            "description": "Update QR code status (suspend, reactivate, etc.)"
           }
         },
         {
-          "name": "Export QR Batch",
+          "name": "Export QR Batch (JSON)",
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/admin/qr/export/BATCH_001", "host": ["{{base_url}}"], "path": ["admin", "qr", "export", "BATCH_001"] }
+            "url": {
+              "raw": "{{api_url}}/admin/qr/export/{{batch_number}}?format=json",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "qr", "export", "{{batch_number}}"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json"
+                }
+              ]
+            },
+            "description": "Export QR batch in JSON format"
+          }
+        },
+        {
+          "name": "Export QR Batch (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/qr/export/{{batch_number}}?format=csv",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "qr", "export", "{{batch_number}}"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            },
+            "description": "Export QR batch in CSV format for printing"
+          }
+        },
+        {
+          "name": "Get Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/admin/dashboard",
+              "host": ["{{api_url}}"],
+              "path": ["admin", "dashboard"]
+            },
+            "description": "Get admin dashboard data with system overview"
           }
         }
       ]
     },
     {
-      "name": "User Flow (role: 2)",
+      "name": "QR Code & Device Management",
       "item": [
         {
           "name": "Get QR Info (Public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.qrInfo && response.qrInfo.device) {",
+                  "        pm.globals.set('device_id', response.qrInfo.device.deviceId);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/qr/info/{{qr_id}}", "host": ["{{base_url}}"], "path": ["qr", "info", "{{qr_id}}"] }
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/qr/info/{{qr_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["qr", "info", "{{qr_id}}"]
+            },
+            "description": "Get QR code information (public endpoint, no auth required)"
           }
         },
         {
           "name": "Link QR to Device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.deviceId) {",
+                  "        pm.globals.set('device_id', response.deviceId);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"deviceInfo\": {\n    \"model\": \"GPS-2000\",\n    \"serialNumber\": \"SN123456789\"\n  },\n  // Optional: provide deviceId or let the system generate one\n  \"deviceId\": \"optional-device-id-here\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"deviceInfo\": {\n    \"model\": \"GPS-Tracker-Pro-2000\",\n    \"serialNumber\": \"SN123456789ABC\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/qr/link", "host": ["{{base_url}}"], "path": ["qr", "link"] }
+            "url": {
+              "raw": "{{api_url}}/qr/link",
+              "host": ["{{api_url}}"],
+              "path": ["qr", "link"]
+            },
+            "description": "Link QR code to a GPS device (User authentication required)"
           }
         },
         {
@@ -130,9 +416,28 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/qr/my-devices", "host": ["{{base_url}}"], "path": ["qr", "my-devices"] }
+            "url": {
+              "raw": "{{api_url}}/qr/my-devices?page=1&limit=10",
+              "host": ["{{api_url}}"],
+              "path": ["qr", "my-devices"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get all devices linked to the authenticated user"
           }
         },
         {
@@ -140,14 +445,27 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"emergencyContacts\": [{\n    \"name\": \"Jane Doe\",\n    \"phone\": \"+1234567890\",\n    \"relationship\": \"spouse\",\n    \"priority\": 1\n  }],\n  \"autoAnswer\": true\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"emergencyContacts\": [\n    {\n      \"name\": \"Jane Doe\",\n      \"phone\": \"+1234567890\",\n      \"relationship\": \"spouse\",\n      \"priority\": 1\n    },\n    {\n      \"name\": \"Emergency Services\",\n      \"phone\": \"+1911\",\n      \"relationship\": \"emergency\",\n      \"priority\": 2\n    }\n  ],\n  \"autoAnswer\": false,\n  \"allowAnonymousCalls\": true,\n  \"callMethods\": [\"direct\", \"masked\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/qr/device/{{device_id}}/settings", "host": ["{{base_url}}"], "path": ["qr", "device", "{{device_id}}", "settings"] }
+            "url": {
+              "raw": "{{api_url}}/qr/device/{{device_id}}/settings",
+              "host": ["{{api_url}}"],
+              "path": ["qr", "device", "{{device_id}}", "settings"]
+            },
+            "description": "Update device emergency settings and preferences"
           }
         },
         {
@@ -155,14 +473,27 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Vehicle sold\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"reason\": \"Vehicle sold to new owner\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/qr/unlink/{{qr_id}}", "host": ["{{base_url}}"], "path": ["qr", "unlink", "{{qr_id}}"] }
+            "url": {
+              "raw": "{{api_url}}/qr/unlink/{{qr_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["qr", "unlink", "{{qr_id}}"]
+            },
+            "description": "Unlink QR code from device (makes it available for relinking)"
           }
         },
         {
@@ -170,34 +501,617 @@
           "request": {
             "method": "GET",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{auth_token}}", "type": "text" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
             ],
-            "url": { "raw": "{{base_url}}/qr/device/{{device_id}}/calls", "host": ["{{base_url}}"], "path": ["qr", "device", "{{device_id}}", "calls"] }
+            "url": {
+              "raw": "{{api_url}}/qr/device/{{device_id}}/calls?page=1&limit=20&emergencyOnly=false&callMethod=direct",
+              "host": ["{{api_url}}"],
+              "path": ["qr", "device", "{{device_id}}", "calls"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "emergencyOnly",
+                  "value": "false"
+                },
+                {
+                  "key": "callMethod",
+                  "value": "direct"
+                }
+              ]
+            },
+            "description": "Get call history for a specific device"
           }
         }
       ]
     },
     {
-      "name": "Anonymous Caller Flow",
+      "name": "Call Management",
       "item": [
         {
-          "name": "Get QR Info (Public)",
+          "name": "Get Available Call Methods",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{base_url}}/qr/info/{{qr_id}}", "host": ["{{base_url}}"], "path": ["qr", "info", "{{qr_id}}"] }
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/calls/methods",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "methods"]
+            },
+            "description": "Get available calling methods (direct, masked)"
           }
         },
         {
-          "name": "Initiate Emergency Call",
+          "name": "Initiate Direct Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.callId) {",
+                  "        pm.globals.set('call_id', response.callId);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
+            "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"callType\": \"audio\",\n  \"callerInfo\": {\n    \"name\": \"Good Samaritan\",\n    \"phone\": \"+1911\",\n    \"location\": \"Interstate 95, Mile 42\",\n    \"description\": \"Vehicle breakdown, driver needs assistance\"\n  },\n  \"emergencyType\": \"breakdown\",\n  \"urgencyLevel\": \"medium\"\n}",
-              "options": { "raw": { "language": "json" } }
+              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"callType\": \"audio\",\n  \"callMethod\": \"direct\",\n  \"callerInfo\": {\n    \"name\": \"Good Samaritan\",\n    \"location\": \"Interstate 95, Mile 42\",\n    \"description\": \"Vehicle breakdown, driver needs assistance\"\n  },\n  \"emergencyType\": \"breakdown\",\n  \"urgencyLevel\": \"medium\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": { "raw": "{{base_url}}/calls/initiate", "host": ["{{base_url}}"], "path": ["calls", "initiate"] }
+            "url": {
+              "raw": "{{api_url}}/calls/initiate",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "initiate"]
+            },
+            "description": "Initiate direct emergency call (no auth required - anonymous caller)"
           }
+        },
+        {
+          "name": "Initiate Masked Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.callId) {",
+                  "        pm.globals.set('call_id', response.callId);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"callType\": \"audio\",\n  \"callMethod\": \"masked\",\n  \"callerInfo\": {\n    \"name\": \"Emergency Caller\",\n    \"phone\": \"+1234567890\",\n    \"location\": \"Highway 101, Exit 25\",\n    \"description\": \"Vehicle accident, medical assistance needed\"\n  },\n  \"emergencyType\": \"accident\",\n  \"urgencyLevel\": \"high\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/calls/initiate",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "initiate"]
+            },
+            "description": "Initiate masked emergency call (phone number required for caller)"
+          }
+        },
+        {
+          "name": "Answer Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/calls/{{call_id}}/answer",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "{{call_id}}", "answer"]
+            },
+            "description": "Answer incoming call (auth required - only QR owner can answer)"
+          }
+        },
+        {
+          "name": "Reject Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Unable to take call right now\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/calls/{{call_id}}/reject",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "{{call_id}}", "reject"]
+            },
+            "description": "Reject incoming call (auth required - only QR owner can reject)"
+          }
+        },
+        {
+          "name": "End Call",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"duration\": 120,\n  \"endedBy\": \"caller\",\n  \"callQuality\": {\n    \"rating\": 5,\n    \"feedback\": \"Good call quality, helpful conversation.\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/calls/{{call_id}}/end",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "{{call_id}}", "end"]
+            },
+            "description": "End active call (can be called by anyone in the call)"
+          }
+        },
+        {
+          "name": "Get Call Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/calls/{{call_id}}/status",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "{{call_id}}", "status"]
+            },
+            "description": "Get call status (no auth required - anonymous caller can check)"
+          }
+        },
+        {
+          "name": "Get Call History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/calls/history?page=1&limit=20&emergencyOnly=false&emergencyType=all&callMethod=direct&dateFrom=2024-01-01&dateTo=2024-12-31",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "emergencyOnly",
+                  "value": "false"
+                },
+                {
+                  "key": "emergencyType",
+                  "value": "all"
+                },
+                {
+                  "key": "callMethod",
+                  "value": "direct"
+                },
+                {
+                  "key": "dateFrom",
+                  "value": "2024-01-01",
+                  "disabled": true
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2024-12-31",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get user's call history with filtering options"
+          }
+        },
+        {
+          "name": "Get Call Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/calls/{{call_id}}",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "{{call_id}}"]
+            },
+            "description": "Get detailed call information (auth required)"
+          }
+        },
+        {
+          "name": "Masked Call Webhook",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"masked_call_id\": \"masked_123456\",\n  \"call_id\": \"{{call_id}}\",\n  \"event_type\": \"call_answered\",\n  \"status\": \"connected\",\n  \"duration\": 0,\n  \"participants\": [\n    {\n      \"number\": \"+1234567890\",\n      \"masked_number\": \"+1555000001\",\n      \"role\": \"caller\"\n    },\n    {\n      \"number\": \"+1987654321\",\n      \"masked_number\": \"+1555000002\",\n      \"role\": \"receiver\"\n    }\n  ],\n  \"timestamp\": \"{{timestamp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/calls/webhook/masked",
+              "host": ["{{api_url}}"],
+              "path": ["calls", "webhook", "masked"]
+            },
+            "description": "Webhook endpoint for masked calling service updates"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agora Integration",
+      "item": [
+        {
+          "name": "Generate Agora Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channelName\": \"emergency_{{call_id}}\",\n  \"uid\": \"caller_{{call_id}}\",\n  \"role\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/agora/token",
+              "host": ["{{api_url}}"],
+              "path": ["agora", "token"]
+            },
+            "description": "Generate Agora token for voice/video calling"
+          }
+        },
+        {
+          "name": "Get Agora Configuration",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/agora/config",
+              "host": ["{{api_url}}"],
+              "path": ["agora", "config"]
+            },
+            "description": "Get Agora app configuration and features"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Send Test Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Notification\",\n  \"body\": \"This is a test notification from the QR Emergency System\",\n  \"data\": {\n    \"type\": \"test\",\n    \"timestamp\": \"{{timestamp}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/test",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "test"]
+            },
+            "description": "Send test notification to authenticated user"
+          }
+        },
+        {
+          "name": "Send Notification to User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"title\": \"Emergency Alert\",\n  \"body\": \"Someone is trying to contact you about your vehicle\",\n  \"data\": {\n    \"type\": \"emergency_call\",\n    \"callId\": \"{{call_id}}\",\n    \"emergencyType\": \"breakdown\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/send",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "send"]
+            },
+            "description": "Send notification to specific user"
+          }
+        },
+        {
+          "name": "Get Notification Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_url}}/notifications/settings",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "settings"]
+            },
+            "description": "Get user's notification preferences"
+          }
+        },
+        {
+          "name": "Update Notification Settings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"calls\": true,\n  \"emergencies\": true,\n  \"marketing\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/settings",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "settings"]
+            },
+            "description": "Update user's notification preferences"
+          }
+        },
+        {
+          "name": "Send Bulk Notification (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [\"10\", \"11\", \"12\"],\n  \"title\": \"System Maintenance Notice\",\n  \"body\": \"The QR Emergency System will undergo maintenance tonight from 2-4 AM\",\n  \"data\": {\n    \"type\": \"maintenance\",\n    \"scheduledTime\": \"2024-01-15T02:00:00Z\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_url}}/notifications/bulk",
+              "host": ["{{api_url}}"],
+              "path": ["notifications", "bulk"]
+            },
+            "description": "Send bulk notification to multiple users (Admin only)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Testing Scenarios",
+      "item": [
+        {
+          "name": "Complete Emergency Flow - Direct Call",
+          "item": [
+            {
+              "name": "1. Get QR Info",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{api_url}}/qr/info/{{qr_id}}",
+                  "host": ["{{api_url}}"],
+                  "path": ["qr", "info", "{{qr_id}}"]
+                }
+              }
+            },
+            {
+              "name": "2. Check Call Methods",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{api_url}}/calls/methods",
+                  "host": ["{{api_url}}"],
+                  "path": ["calls", "methods"]
+                }
+              }
+            },
+            {
+              "name": "3. Initiate Emergency Call",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"callMethod\": \"direct\",\n  \"callerInfo\": {\n    \"name\": \"Emergency Responder\",\n    \"location\": \"Highway 101, Mile 25\"\n  },\n  \"emergencyType\": \"accident\",\n  \"urgencyLevel\": \"critical\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{api_url}}/calls/initiate",
+                  "host": ["{{api_url}}"],
+                  "path": ["calls", "initiate"]
+                }
+              }
+            },
+            {
+              "name": "4. Check Call Status",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{api_url}}/calls/{{call_id}}/status",
+                  "host": ["{{api_url}}"],
+                  "path": ["calls", "{{call_id}}", "status"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Complete Emergency Flow - Masked Call",
+          "item": [
+            {
+              "name": "1. Get QR Info",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{api_url}}/qr/info/{{qr_id}}",
+                  "host": ["{{api_url}}"],
+                  "path": ["qr", "info", "{{qr_id}}"]
+                }
+              }
+            },
+            {
+              "name": "2. Initiate Masked Call",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"qrId\": \"{{qr_id}}\",\n  \"callMethod\": \"masked\",\n  \"callerInfo\": {\n    \"name\": \"Anonymous Helper\",\n    \"phone\": \"+1234567890\",\n    \"location\": \"Downtown area\"\n  },\n  \"emergencyType\": \"breakdown\",\n  \"urgencyLevel\": \"medium\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{api_url}}/calls/initiate",
+                  "host": ["{{api_url}}"],
+                  "path": ["calls", "initiate"]
+                }
+              }
+            },
+            {
+              "name": "3. Check Call Status",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{api_url}}/calls/{{call_id}}/status",
+                  "host": ["{{api_url}}"],
+                  "path": ["calls", "{{call_id}}", "status"]
+                }
+              }
+            }
+          ]
         }
       ]
     }

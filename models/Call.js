@@ -31,6 +31,11 @@ const callSchema = new mongoose.Schema({
     enum: ['audio', 'video'],
     default: 'audio'
   },
+  callMethod: {
+    type: String,
+    enum: ['direct', 'masked'],
+    default: 'direct'
+  },
   status: {
     type: String,
     enum: ['initiated', 'ringing', 'answered', 'rejected', 'ended', 'missed', 'failed'],
@@ -77,6 +82,24 @@ const callSchema = new mongoose.Schema({
       required: true
     }
     // No other required fields
+  },
+  maskedCallInfo: {
+    maskedCallId: {
+      type: String,
+      default: null
+    },
+    callerMaskedNumber: {
+      type: String,
+      default: null
+    },
+    receiverMaskedNumber: {
+      type: String,
+      default: null
+    },
+    callbackUrl: {
+      type: String,
+      default: null
+    }
   },
   timing: {
     initiatedAt: {
@@ -138,6 +161,8 @@ callSchema.index({ receiverId: 1, createdAt: -1 });
 callSchema.index({ qrCodeId: 1, createdAt: -1 });
 callSchema.index({ status: 1, 'callerInfo.emergencyType': 1 });
 callSchema.index({ 'timing.initiatedAt': -1 });
+callSchema.index({ callMethod: 1, status: 1 });
+callSchema.index({ 'maskedCallInfo.maskedCallId': 1 });
 
 // Virtual for call duration calculation
 callSchema.virtual('calculatedDuration').get(function() {
