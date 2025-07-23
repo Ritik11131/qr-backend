@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.5.0",
     "morgan": "^1.10.0",
+    "node-fetch": "^3.3.2",
     "qrcode": "^1.5.4",
     "socket.io": "^4.6.1",
     "uuid": "^9.0.0"
@@ -40,7 +41,10 @@
     "vehicle",
     "calling",
     "agora",
-    "gps"
+    "gps",
+    "masked-calling",
+    "firebase",
+    "notifications"
   ],
   "author": "Your Company",
   "license": "MIT"
