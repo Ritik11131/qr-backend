@@ -95,8 +95,9 @@ router.get('/info/:qrId', generalRateLimit, async (req, res) => {
 // Link QR code to device (AUTH REQUIRED)
 router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) => {
   try {
-    const { qrId, deviceInfo, deviceId: providedDeviceId } = req.body;
+    const { qrId, deviceInfo } = req.body;
     const userId = req.user.user_id;
+    const userName = req.user.unique_name;
 
     console.log(`🔗 Linking QR ${qrId} to user ${userId}`);
 
@@ -138,7 +139,7 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
     }
 
     // Use provided deviceId or generate a new one
-    const deviceId = providedDeviceId || uuidv4();
+    const deviceId = deviceInfo?.deviceId || uuidv4();
     
     // Get available call methods for default settings
     const maskedCallingService = require('../services/maskedCallingService');
@@ -154,7 +155,8 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
         serialNumber: deviceInfo.serialNumber
       },
       owner: {
-        userId
+        userId,
+        userName
       },
       status: 'active',
       settings: {

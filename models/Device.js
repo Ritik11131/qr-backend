@@ -23,7 +23,12 @@ const deviceSchema = new mongoose.Schema({
       type: String,
       required: true,
       index: true
-    }
+    },
+    userName: {
+      type: String,
+      required: true,
+      index: true
+    },
   },
   status: {
     type: String,

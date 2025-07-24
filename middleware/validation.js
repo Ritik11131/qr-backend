@@ -42,9 +42,9 @@ const validateQRLink = (req, res, next) => {
     qrId: Joi.string().required(),
     deviceInfo: Joi.object({
       model: Joi.string().required(),
-      serialNumber: Joi.string().required()
+      serialNumber: Joi.string().required(),
+      deviceId: Joi.string().optional()
     }).required(),
-    deviceId: Joi.string().optional()
   });
 
   const { error } = schema.validate(req.body);
@@ -65,7 +65,7 @@ const validateCallInitiation = (req, res, next) => {
     callMethod: Joi.string().valid('direct', 'masked').default('direct'),
     callerInfo: Joi.object({
       name: Joi.string().max(100).optional(),
-      phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).optional(),
+      phone: Joi.string().min(5).max(20).optional(),
       location: Joi.string().max(200).optional(),
       description: Joi.string().max(500).optional(),
       additionalInfo: Joi.string().max(500).optional(),
@@ -86,7 +86,7 @@ const validateCallInitiation = (req, res, next) => {
   const schemaWithCustom = schema.custom(customValidation).messages({
     'custom.maskedCallRequiresPhone': 'Caller phone number is required for masked calling'
   });
-  const { error } = schema.validate(req.body);
+  const { error } = schemaWithCustom.validate(req.body);
   if (error) {
     return res.status(400).json({
       error: 'Validation failed',
