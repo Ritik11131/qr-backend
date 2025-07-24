@@ -128,7 +128,7 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
 
     // Check if device serial number is already used
     const existingDevice = await Device.findOne({ 
-      'deviceInfo.serialNumber': deviceInfo.serialNumber 
+      'deviceInfo.id': deviceInfo.id 
     });
     
     if (existingDevice) {
@@ -151,8 +151,8 @@ router.post('/link', auth, generalRateLimit, validateQRLink, async (req, res) =>
     const device = new Device({
       deviceId,
       deviceInfo: {
-        model: deviceInfo.model,
-        serialNumber: deviceInfo.serialNumber
+        vehicleNo: deviceInfo.vehicleNo,
+        id: deviceInfo.id
       },
       owner: {
         userId,

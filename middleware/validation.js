@@ -41,8 +41,8 @@ const validateQRLink = (req, res, next) => {
   const schema = Joi.object({
     qrId: Joi.string().required(),
     deviceInfo: Joi.object({
-      model: Joi.string().required(),
-      serialNumber: Joi.string().required(),
+      vehicleNo: Joi.string().required(),
+      id: Joi.string().required(),
       deviceId: Joi.string().optional()
     }).required(),
   });

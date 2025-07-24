@@ -8,11 +8,11 @@ const deviceSchema = new mongoose.Schema({
     index: true
   },
   deviceInfo: {
-    model: {
+    vehicleNo: {
       type: String,
       required: true
     },
-    serialNumber: {
+    id: {
       type: String,
       required: true,
       unique: true
