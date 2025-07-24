@@ -1,23 +1,33 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const Call = require('../models/Call');
-const User = require('../models/User');
 const QRCode = require('../models/QRCode');
 const Device = require('../models/Device');
 const { sendPushNotification } = require('../services/notificationService');
 const { generateAgoraToken } = require('../services/agoraService');
+const maskedCallingService = require('../services/maskedCallingService');
 const { auth } = require('../middleware/auth');
 const { callRateLimit, generalRateLimit } = require('../middleware/rateLimiter');
 const { validateCallInitiation } = require('../middleware/validation');
+const config = require('../config/app');
 
 const router = express.Router();
 
 // Enhanced call initiation for device-linked QR codes
 router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res) => {
   try {
-    const { qrId, callType = 'audio', callerInfo, emergencyType = 'general', urgencyLevel = 'medium' } = req.body;
+    const { 
+      qrId, 
+      callType = 'audio', 
+      callerInfo, 
+      emergencyType = 'general', 
+      urgencyLevel = 'medium',
+      callMethod = 'direct' // 'direct' or 'masked'
+    } = req.body;
 
     console.log(`📞 Call initiation request for QR: ${qrId}`);
+    console.log(`   📱 Call method: ${callMethod}`);
+    console.log(`   🚨 Emergency type: ${emergencyType}`);
 
     // Find QR code
     const qrCode = await QRCode.findOne({ qrId, isActive: true });
@@ -38,21 +48,16 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       });
     }
 
-    // Get device and owner info
+    // Get device info
     const device = await Device.findOne({
       deviceId: qrCode.linkedTo.deviceId,
       status: 'active'
     });
-    
-    const owner = await User.findOne({ 
-      userId: qrCode.linkedTo.userId,
-      isActive: true 
-    });
 
-    if (!device || !owner) {
+    if (!device) {
       return res.status(404).json({
-        error: 'Device or owner not found, or device is inactive',
-        code: 'DEVICE_OWNER_NOT_FOUND'
+        error: 'Device not found or inactive',
+        code: 'DEVICE_NOT_FOUND'
       });
     }
 
@@ -64,6 +69,28 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       });
     }
 
+    // Validate call method
+    if (callMethod === 'masked' && !maskedCallingService.isAvailable()) {
+      return res.status(400).json({
+        error: 'Masked calling is not available',
+        code: 'MASKED_CALLING_UNAVAILABLE',
+        availableMethods: ['direct']
+      });
+    }
+
+    // For masked calls, validate phone numbers
+    if (callMethod === 'masked') {
+      if (!callerInfo?.phone) {
+        return res.status(400).json({
+          error: 'Caller phone number is required for masked calling',
+          code: 'CALLER_PHONE_REQUIRED'
+        });
+      }
+      
+      // We'll need the receiver's phone number from their profile
+      // For now, we'll assume it's available in device settings or user profile
+      // This would need to be implemented based on your user management system
+    }
     // Generate unique call ID and channel name
     const callId = uuidv4();
     const channelName = `emergency_${callId}`;
@@ -78,12 +105,6 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       description: callerInfo?.description || '',
       additionalInfo: callerInfo?.additionalInfo || '',
       deviceId: device.deviceId,
-      vehicleInfo: {
-        type: device.vehicle.type,
-        model: `${device.vehicle.make} ${device.vehicle.model}`,
-        plate: device.vehicle.plateNumber,
-        color: device.vehicle.color
-      },
       timestamp: new Date()
     };
 
@@ -95,14 +116,11 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
       qrCodeId: qrId,
       channelName,
       callType,
+      callMethod, // Add call method to record
       status: 'initiated',
       callerInfo: enhancedCallerInfo,
       deviceInfo: {
-        deviceId: device.deviceId,
-        vehicleType: device.vehicle.type,
-        vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-        plateNumber: device.vehicle.plateNumber,
-        vehicleColor: device.vehicle.color
+        deviceId: device.deviceId
       },
       anonymousCall: true,
       isEmergency: emergencyType !== 'general',
@@ -121,100 +139,136 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
     }
     await qrCode.save();
 
-    // Update device stats
-    device.stats.totalCalls += 1;
-    device.stats.lastCallDate = new Date();
-    if (emergencyType !== 'general') {
-      device.stats.emergencyCalls += 1;
-    }
-    await device.save();
+    let callResponse = {
+      success: true,
+      callId,
+      callMethod,
+      receiver: {
+        userId: qrCode.linkedTo.userId,
+        name: qrCode.emergencyInfo.showOwnerName ? 'Vehicle Owner' : 'Vehicle Owner',
+        avatar: ''
+      },
+      deviceInfo: {
+        deviceId: device.deviceId
+      },
+      emergencyInfo: qrCode.emergencyInfo,
+      callContext: {
+        emergencyType,
+        urgencyLevel,
+        isEmergency: emergencyType !== 'general'
+      }
+    };
 
-    // Update user stats
-    owner.stats.totalCalls += 1;
-    if (emergencyType !== 'general') {
-      owner.stats.emergencyCalls += 1;
-    }
-    await owner.save();
+    // Handle different call methods
+    if (callMethod === 'masked') {
+      try {
+        // For masked calling, we need the receiver's phone number
+        // This should come from user profile or device settings
+        const receiverPhone = device.settings.emergencyContacts?.[0]?.phone || 
+                             device.owner.phone || // Assuming phone is stored in owner
+                             '+1234567890'; // Fallback - should be properly implemented
 
-    // Generate Agora tokens
-    const callerUID = `caller_${callId.substring(0, 8)}`;
-    const receiverUID = `owner_${qrCode.linkedTo.userId.substring(0, 8)}`;
-    const callerToken = generateAgoraToken(channelName, callerUID);
-    const receiverToken = generateAgoraToken(channelName, receiverUID);
+        const maskedCallData = {
+          callId,
+          callerPhone: callerInfo.phone,
+          receiverPhone,
+          callbackUrl: `${config.get('urls.api')}/api/calls/webhook/masked`,
+          metadata: {
+            qrId,
+            emergencyType,
+            urgencyLevel,
+            deviceId: device.deviceId
+          }
+        };
+
+        const maskedResult = await maskedCallingService.initiateMaskedCall(maskedCallData);
+        
+        // Update call record with masked call info
+        call.maskedCallInfo = {
+          maskedCallId: maskedResult.maskedCallId,
+          callerMaskedNumber: maskedResult.callerMaskedNumber,
+          receiverMaskedNumber: maskedResult.receiverMaskedNumber
+        };
+        await call.save();
+
+        callResponse.maskedCallInfo = maskedResult;
+        callResponse.message = 'Masked call initiated. Both parties will receive calls from masked numbers.';
+
+      } catch (maskedError) {
+        console.error('❌ Masked call failed, falling back to direct call:', maskedError.message);
+        
+        // Fall back to direct call
+        callMethod = 'direct';
+        call.callMethod = 'direct';
+        call.callerInfo.additionalInfo += ` (Masked call failed: ${maskedError.message})`;
+        await call.save();
+      }
+    }
+
+    // For direct calls or masked call fallback, use Agora
+    if (callMethod === 'direct') {
+      // Generate Agora tokens
+      const callerUID = `caller_${callId}`;
+      const receiverUID = `owner_${qrCode.linkedTo.userId}`;
+      const callerToken = generateAgoraToken(channelName, callerUID);
+      const receiverToken = generateAgoraToken(channelName, receiverUID);
+
+      callResponse.callerUID = callerUID;
+      callResponse.channelName = channelName;
+      callResponse.token = callerToken;
+      callResponse.appId = config.get('agora.appId');
+      callResponse.message = emergencyType !== 'general'
+        ? 'Emergency call initiated. The vehicle owner will be notified immediately with high priority.'
+        : 'Call initiated successfully. The vehicle owner will be notified.';
+    }
 
     // Determine notification priority and content
     const isEmergency = emergencyType !== 'general';
     const isHighUrgency = urgencyLevel === 'high' || urgencyLevel === 'critical';
 
     let notificationTitle = '📞 Vehicle Contact';
-    let notificationBody = `${callerInfo?.name || 'Someone'} wants to contact you about your ${device.vehicle.type}`;
+    let notificationBody = `${callerInfo?.name || 'Someone'} wants to contact you about your vehicle.`;
 
     if (isEmergency) {
       notificationTitle = urgencyLevel === 'critical' ? '🚨 CRITICAL EMERGENCY' : '⚠️ Emergency Call';
-      notificationBody = `URGENT: ${emergencyType.toUpperCase()} involving your ${device.vehicle.type} (${device.vehicle.plateNumber})`;
+      notificationBody = `URGENT: ${emergencyType.toUpperCase()} involving your vehicle.`;
     }
 
     // Enhanced push notification
-    const notificationData = {
+    let notificationData = {
       title: notificationTitle,
       body: notificationBody,
       data: {
         callId,
-        callerUID,
+        callerUID: callResponse.callerUID || '',
         channelName,
         callType,
-        token: receiverToken,
+        callMethod,
+        token: callMethod === 'direct' ? generateAgoraToken(channelName, `owner_${qrCode.linkedTo.userId}`) : '',
         callerInfo: JSON.stringify(enhancedCallerInfo),
-        deviceInfo: JSON.stringify(call.deviceInfo),
+        deviceInfo: JSON.stringify({ deviceId: device.deviceId }),
         emergencyType,
         urgencyLevel,
         priority: isHighUrgency ? 'high' : 'normal',
         qrId
       }
     };
+    // Ensure all data values are strings
+    notificationData.data = Object.fromEntries(
+      Object.entries(notificationData.data).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
+    );
 
-    // Send push notification
-    if (owner.deviceTokens && owner.deviceTokens.length > 0) {
-      try {
-        await sendPushNotification(owner.deviceTokens, notificationData);
-        console.log(`📱 Push notification sent to ${owner.deviceTokens.length} devices`);
-      } catch (notificationError) {
-        console.error('❌ Push notification failed:', notificationError);
-        // Don't fail the call if notification fails
-      }
+    // Send push notification to the receiver (vehicle owner)
+    try {
+      await sendPushNotification(qrCode.linkedTo.userId, notificationData);
+    } catch (notifError) {
+      console.error('❌ Push notification error:', notifError.message);
+      // Do not block the main flow if notification fails
     }
 
     console.log(`✅ Call ${callId} initiated successfully`);
 
-    // Return enhanced response
-    res.json({
-      success: true,
-      callId,
-      callerUID,
-      channelName,
-      token: callerToken,
-      appId: process.env.AGORA_APP_ID,
-      receiver: {
-        userId: owner.userId,
-        name: qrCode.emergencyInfo.showOwnerName ? owner.name : 'Vehicle Owner',
-        avatar: owner.avatar
-      },
-      deviceInfo: {
-        vehicleType: device.vehicle.type,
-        vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-        plateNumber: qrCode.emergencyInfo.showVehiclePlate ? device.vehicle.plateNumber : 'Hidden',
-        color: device.vehicle.color
-      },
-      emergencyInfo: qrCode.emergencyInfo,
-      callContext: {
-        emergencyType,
-        urgencyLevel,
-        isEmergency
-      },
-      message: isEmergency
-        ? 'Emergency call initiated. The vehicle owner will be notified immediately with high priority.'
-        : 'Call initiated successfully. The vehicle owner will be notified.'
-    });
+    res.json(callResponse);
   } catch (error) {
     console.error('❌ Error initiating call:', error);
     res.status(500).json({ 
@@ -224,11 +278,64 @@ router.post('/initiate', callRateLimit, validateCallInitiation, async (req, res)
   }
 });
 
+// Webhook endpoint for masked calling service
+router.post('/webhook/masked', generalRateLimit, async (req, res) => {
+  try {
+    console.log('🔔 Masked calling webhook received:', req.body);
+    
+    const webhookData = maskedCallingService.handleWebhook(req.body);
+    
+    // Find the call record
+    const call = await Call.findOne({ 
+      callId: webhookData.originalCallId 
+    });
+    
+    if (call) {
+      // Update call status based on webhook
+      switch (webhookData.eventType) {
+        case 'call_answered':
+          call.status = 'answered';
+          call.timing.answeredAt = webhookData.timestamp;
+          break;
+        case 'call_ended':
+          call.status = 'ended';
+          call.timing.endedAt = webhookData.timestamp;
+          call.timing.duration = webhookData.duration || 0;
+          break;
+        case 'call_failed':
+          call.status = 'failed';
+          call.timing.endedAt = webhookData.timestamp;
+          break;
+      }
+      
+      await call.save();
+      
+      // Emit socket event to update clients
+      const io = req.app.get('io');
+      if (io) {
+        io.to(call.receiverId).emit('masked-call-update', {
+          callId: call.callId,
+          status: call.status,
+          eventType: webhookData.eventType,
+          timestamp: webhookData.timestamp
+        });
+      }
+    }
+    
+    res.json({ success: true, received: true });
+  } catch (error) {
+    console.error('❌ Masked calling webhook error:', error);
+    res.status(500).json({ 
+      error: 'Webhook processing failed',
+      code: 'WEBHOOK_ERROR'
+    });
+  }
+});
 // Answer call (AUTH REQUIRED - Only the QR owner can answer)
 router.post('/:callId/answer', auth, generalRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`✅ User ${userId} attempting to answer call ${callId}`);
 
@@ -251,18 +358,11 @@ router.post('/:callId/answer', auth, generalRateLimit, async (req, res) => {
     call.timing.answeredAt = new Date();
     await call.save();
 
-    // Generate fresh token for the receiver
-    const receiverUID = `owner_${userId.substring(0, 8)}`;
-    const receiverToken = generateAgoraToken(call.channelName, receiverUID);
-
-    console.log(`📞 Call ${callId} answered successfully`);
-
-    res.json({
+    let responseData = {
       success: true,
       message: 'Call answered successfully',
-      channelName: call.channelName,
-      token: receiverToken,
-      appId: process.env.AGORA_APP_ID,
+      callId: call.callId,
+      callMethod: call.callMethod,
       callerInfo: call.callerInfo,
       deviceInfo: call.deviceInfo,
       callContext: {
@@ -270,7 +370,26 @@ router.post('/:callId/answer', auth, generalRateLimit, async (req, res) => {
         urgencyLevel: call.callerInfo.urgencyLevel,
         isEmergency: call.callerInfo.emergencyType !== 'general'
       }
-    });
+    };
+
+    // Handle response based on call method
+    if (call.callMethod === 'masked') {
+      // For masked calls, the actual connection is handled by the masked calling service
+      responseData.maskedCallInfo = call.maskedCallInfo;
+      responseData.message = 'Masked call answered. Connection established through masked numbers.';
+    } else {
+      // For direct calls, provide Agora token
+      const receiverUID = `owner_${userId}`;
+      const receiverToken = generateAgoraToken(call.channelName, receiverUID);
+      
+      responseData.channelName = call.channelName;
+      responseData.token = receiverToken;
+      responseData.appId = config.get('agora.appId');
+    }
+
+    console.log(`📞 Call ${callId} answered successfully`);
+
+    res.json(responseData);
   } catch (error) {
     console.error('❌ Error answering call:', error);
     res.status(500).json({ 
@@ -285,7 +404,7 @@ router.post('/:callId/reject', auth, generalRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const { reason } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`❌ User ${userId} rejecting call ${callId}`);
 
@@ -304,6 +423,15 @@ router.post('/:callId/reject', auth, generalRateLimit, async (req, res) => {
       });
     }
 
+    // Handle masked call rejection
+    if (call.callMethod === 'masked' && call.maskedCallInfo?.maskedCallId) {
+      try {
+        await maskedCallingService.endMaskedCall(call.maskedCallInfo.maskedCallId);
+      } catch (maskedError) {
+        console.error('❌ Failed to end masked call:', maskedError.message);
+        // Continue with rejection even if masked call end fails
+      }
+    }
     call.status = 'rejected';
     call.timing.endedAt = new Date();
     call.endedBy = 'receiver';
@@ -350,6 +478,19 @@ router.post('/:callId/end', generalRateLimit, async (req, res) => {
       });
     }
 
+    // Handle masked call ending
+    if (call.callMethod === 'masked' && call.maskedCallInfo?.maskedCallId) {
+      try {
+        const maskedResult = await maskedCallingService.endMaskedCall(call.maskedCallInfo.maskedCallId);
+        // Use duration from masked calling service if available
+        if (maskedResult.duration && !duration) {
+          call.timing.duration = maskedResult.duration;
+        }
+      } catch (maskedError) {
+        console.error('❌ Failed to end masked call:', maskedError.message);
+        // Continue with ending the call record
+      }
+    }
     call.status = 'ended';
     call.timing.endedAt = new Date();
     call.timing.duration = duration || 0;
@@ -391,17 +532,30 @@ router.get('/:callId/status', generalRateLimit, async (req, res) => {
       });
     }
 
-    res.json({
+    let statusResponse = {
       success: true,
       status: call.status,
       callId: call.callId,
+      callMethod: call.callMethod,
       duration: call.timing.duration,
       answeredAt: call.timing.answeredAt,
       endedAt: call.timing.endedAt,
       emergencyType: call.callerInfo.emergencyType,
       urgencyLevel: call.callerInfo.urgencyLevel,
       isEmergency: call.isEmergency
-    });
+    };
+
+    // Add masked call info if available
+    if (call.callMethod === 'masked' && call.maskedCallInfo) {
+      try {
+        const maskedStatus = await maskedCallingService.getMaskedCallStatus(call.maskedCallInfo.maskedCallId);
+        statusResponse.maskedCallStatus = maskedStatus;
+      } catch (maskedError) {
+        console.error('❌ Failed to get masked call status:', maskedError.message);
+        // Don't fail the request, just omit masked status
+      }
+    }
+    res.json(statusResponse);
   } catch (error) {
     console.error('❌ Error getting call status:', error);
     res.status(500).json({ 
@@ -411,6 +565,43 @@ router.get('/:callId/status', generalRateLimit, async (req, res) => {
   }
 });
 
+// Get available call methods
+router.get('/methods', generalRateLimit, async (req, res) => {
+  try {
+    const methods = [
+      {
+        method: 'direct',
+        name: 'Direct Voice Call',
+        description: 'Connect directly through the app using Agora voice calling',
+        available: true,
+        requiresPhone: false
+      }
+    ];
+
+    if (maskedCallingService.isAvailable()) {
+      methods.push({
+        method: 'masked',
+        name: 'Masked Number Call',
+        description: 'Call with number privacy protection using masked phone numbers',
+        available: true,
+        requiresPhone: true
+      });
+    }
+
+    res.json({
+      success: true,
+      methods,
+      defaultMethod: 'direct',
+      maskedCallingConfig: maskedCallingService.getConfig()
+    });
+  } catch (error) {
+    console.error('❌ Error getting call methods:', error);
+    res.status(500).json({ 
+      error: error.message,
+      code: 'CALL_METHODS_ERROR'
+    });
+  }
+});
 // Get enhanced call history with device context
 router.get('/history', auth, generalRateLimit, async (req, res) => {
   try {
@@ -420,10 +611,11 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
       deviceId, 
       emergencyOnly, 
       emergencyType, 
+      callMethod,
       dateFrom, 
       dateTo 
     } = req.query;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     console.log(`📋 User ${userId} requesting call history`);
 
@@ -436,6 +628,10 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
       filter['deviceInfo.deviceId'] = deviceId;
     }
 
+    // Filter by call method
+    if (callMethod && ['direct', 'masked'].includes(callMethod)) {
+      filter.callMethod = callMethod;
+    }
     // Filter emergency calls only
     if (emergencyOnly === 'true') {
       filter['callerInfo.emergencyType'] = { $ne: 'general' };
@@ -464,16 +660,17 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
       calls.map(async (call) => {
         let caller = null;
         if (call.callerId) {
-          caller = await User.findOne({ userId: call.callerId }, 'name avatar');
+          caller = {
+            name: call.callerInfo?.name || 'Anonymous Caller',
+            avatar: '',
+            isAnonymous: true,
+            emergencyType: call.callerInfo?.emergencyType || 'general',
+            urgencyLevel: call.callerInfo?.urgencyLevel || 'medium'
+          };
         }
 
-        const receiver = await User.findOne({ userId: call.receiverId }, 'name avatar');
-
-        // Get device info if available
-        let device = null;
-        if (call.deviceInfo?.deviceId) {
-          device = await Device.findOne({ deviceId: call.deviceInfo.deviceId });
-        }
+        const receiver = { name: 'Unknown', avatar: '' };
+        const device = null;
 
         return {
           ...call,
@@ -484,13 +681,8 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
             emergencyType: call.callerInfo?.emergencyType || 'general',
             urgencyLevel: call.callerInfo?.urgencyLevel || 'medium'
           },
-          receiver: receiver || { name: 'Unknown', avatar: '' },
-          device: device ? {
-            vehicleType: device.vehicle.type,
-            vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-            plateNumber: device.vehicle.plateNumber,
-            color: device.vehicle.color
-          } : call.deviceInfo,
+          receiver: receiver,
+          device: device,
           isEmergency: call.callerInfo?.emergencyType !== 'general'
         };
       })
@@ -511,7 +703,9 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
         totalCalls,
         emergencyCalls: populatedCalls.filter(c => c.isEmergency).length,
         answeredCalls: populatedCalls.filter(c => c.status === 'answered' || c.status === 'ended').length,
-        missedCalls: populatedCalls.filter(c => c.status === 'missed').length
+        missedCalls: populatedCalls.filter(c => c.status === 'missed').length,
+        directCalls: populatedCalls.filter(c => c.callMethod === 'direct').length,
+        maskedCalls: populatedCalls.filter(c => c.callMethod === 'masked').length
       }
     });
   } catch (error) {
@@ -527,7 +721,7 @@ router.get('/history', auth, generalRateLimit, async (req, res) => {
 router.get('/:callId', auth, generalRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.user_id;
 
     const call = await Call.findOne({
       callId,
@@ -544,31 +738,41 @@ router.get('/:callId', auth, generalRateLimit, async (req, res) => {
     // Populate user details
     let caller = null;
     if (call.callerId) {
-      caller = await User.findOne({ userId: call.callerId }, 'name avatar');
+      caller = {
+        name: call.callerInfo?.name || 'Anonymous Caller',
+        avatar: '',
+        isAnonymous: true
+      };
     }
 
-    const receiver = await User.findOne({ userId: call.receiverId }, 'name avatar');
-    const device = await Device.findOne({ deviceId: call.deviceInfo?.deviceId });
+    const receiver = { name: 'Unknown', avatar: '' };
+    const device = null;
 
+    let callDetails = {
+      ...call.toObject(),
+      caller: caller || {
+        name: call.callerInfo?.name || 'Anonymous Caller',
+        avatar: '',
+        isAnonymous: true
+      },
+      receiver: receiver,
+      device: device,
+      isEmergency: call.callerInfo?.emergencyType !== 'general'
+    };
+
+    // Add masked call details if available
+    if (call.callMethod === 'masked' && call.maskedCallInfo?.maskedCallId) {
+      try {
+        const maskedStatus = await maskedCallingService.getMaskedCallStatus(call.maskedCallInfo.maskedCallId);
+        callDetails.maskedCallDetails = maskedStatus;
+      } catch (maskedError) {
+        console.error('❌ Failed to get masked call details:', maskedError.message);
+        // Don't fail the request, just omit masked details
+      }
+    }
     res.json({
       success: true,
-      call: {
-        ...call.toObject(),
-        caller: caller || {
-          name: call.callerInfo?.name || 'Anonymous Caller',
-          avatar: '',
-          isAnonymous: true
-        },
-        receiver: receiver || { name: 'Unknown', avatar: '' },
-        device: device ? {
-          vehicleType: device.vehicle.type,
-          vehicleModel: `${device.vehicle.make} ${device.vehicle.model}`,
-          plateNumber: device.vehicle.plateNumber,
-          color: device.vehicle.color,
-          installation: device.installation
-        } : null,
-        isEmergency: call.callerInfo?.emergencyType !== 'general'
-      }
+      call: callDetails
     });
   } catch (error) {
     console.error('❌ Error getting call details:', error);

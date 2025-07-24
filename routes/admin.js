@@ -4,7 +4,6 @@ const { adminRateLimit } = require('../middleware/rateLimiter');
 const { validateBulkQRGeneration } = require('../middleware/validation');
 const { generateQRBatch, getQRInventory, getQRAnalytics } = require('../services/qrService');
 const QRCode = require('../models/QRCode');
-const User = require('../models/User');
 const Device = require('../models/Device');
 const Call = require('../models/Call');
 
@@ -14,10 +13,10 @@ const router = express.Router();
 router.post('/qr/bulk-generate', adminAuth, adminRateLimit, validateBulkQRGeneration, async (req, res) => {
   try {
     const { count, batchNumber, qrType, notes } = req.body;
-    const generatedBy = req.user.userId;
+    const generatedBy = req.user.user_id;
     const baseUrl = process.env.CALLER_URL || 'http://localhost:8000';
 
-    console.log(`🏭 Admin ${req.user.email} generating ${count} QR codes`);
+    console.log(`🏭 Admin ${req.user.unique_name} generating ${count} QR codes`);
 
     // Check if batch number already exists
     const existingBatch = await QRCode.findOne({ 
@@ -63,33 +62,14 @@ router.get('/qr/inventory', adminAuth, adminRateLimit, async (req, res) => {
       dateTo: req.query.dateTo
     };
 
-    console.log(`📊 Admin ${req.user.email} requesting QR inventory`);
+    console.log(`📊 Admin ${req.user.unique_name} requesting QR inventory`);
 
     const result = await getQRInventory(filters);
 
-    // Populate linked user information for linked QR codes
-    const populatedInventory = await Promise.all(
-      result.inventory.map(async (qr) => {
-        if (qr.status === 'linked' && qr.linkedTo.userId) {
-          const user = await User.findOne({ userId: qr.linkedTo.userId }, 'name email');
-          const device = await Device.findOne({ deviceId: qr.linkedTo.deviceId }, 'vehicle');
-          
-          return {
-            ...qr,
-            linkedTo: {
-              ...qr.linkedTo,
-              user: user ? { name: user.name, email: user.email } : null,
-              device: device ? device.vehicle : null
-            }
-          };
-        }
-        return qr;
-      })
-    );
-
+    // Remove user population logic, just return inventory as is
     res.json({
       success: true,
-      inventory: populatedInventory,
+      inventory: result.inventory,
       summary: result.summary,
       pagination: result.pagination
     });
@@ -107,13 +87,12 @@ router.get('/qr/analytics', adminAuth, adminRateLimit, async (req, res) => {
   try {
     const { dateRange = 30 } = req.query;
 
-    console.log(`📈 Admin ${req.user.email} requesting analytics`);
+    console.log(`📈 Admin ${req.user.unique_name} requesting analytics`);
 
     const analytics = await getQRAnalytics(Number(dateRange));
 
-    // Additional system statistics
+    // Only provide device/call stats, mark user stats as not available
     const systemStats = await Promise.all([
-      User.countDocuments({ role: 'user', isActive: true }),
       Device.countDocuments({ status: 'active' }),
       Call.countDocuments({ createdAt: { $gte: new Date(Date.now() - dateRange * 24 * 60 * 60 * 1000) } }),
       Call.countDocuments({ 
@@ -122,14 +101,14 @@ router.get('/qr/analytics', adminAuth, adminRateLimit, async (req, res) => {
       })
     ]);
 
-    const [totalUsers, activeDevices, recentCalls, recentEmergencyCalls] = systemStats;
+    const [activeDevices, recentCalls, recentEmergencyCalls] = systemStats;
 
     res.json({
       success: true,
       analytics: {
         ...analytics.analytics,
         systemStats: {
-          totalUsers,
+          totalUsers: 'N/A',
           activeDevices,
           recentCalls,
           recentEmergencyCalls,
@@ -171,7 +150,7 @@ router.put('/qr/:qrId/status', adminAuth, adminRateLimit, async (req, res) => {
 
     const oldStatus = qrCode.status;
     qrCode.status = status;
-    qrCode.notes = `Status changed from ${oldStatus} to ${status} by admin ${req.user.email}. Reason: ${reason || 'Not specified'}`;
+    qrCode.notes = `Status changed from ${oldStatus} to ${status} by admin ${req.user.unique_name}. Reason: ${reason || 'Not specified'}`;
 
     // If suspending or marking as damaged, handle linked device
     if ((status === 'suspended' || status === 'damaged') && qrCode.linkedTo.deviceId) {
@@ -184,7 +163,7 @@ router.put('/qr/:qrId/status', adminAuth, adminRateLimit, async (req, res) => {
 
     await qrCode.save();
 
-    console.log(`🔄 Admin ${req.user.email} changed QR ${qrId} status: ${oldStatus} → ${status}`);
+    console.log(`🔄 Admin ${req.user.unique_name} changed QR ${qrId} status: ${oldStatus} → ${status}`);
 
     res.json({
       success: true,
@@ -211,7 +190,7 @@ router.get('/qr/export/:batchNumber', adminAuth, adminRateLimit, async (req, res
     const { batchNumber } = req.params;
     const { format = 'json' } = req.query;
 
-    console.log(`📤 Admin ${req.user.email} exporting batch: ${batchNumber}`);
+    console.log(`📤 Admin ${req.user.unique_name} exporting batch: ${batchNumber}`);
 
     const qrCodes = await QRCode.find({ 
       batchNumber: { $regex: batchNumber, $options: 'i' } 
@@ -264,7 +243,7 @@ router.get('/qr/export/:batchNumber', adminAuth, adminRateLimit, async (req, res
 // Get system dashboard data (ADMIN ONLY)
 router.get('/dashboard', adminAuth, adminRateLimit, async (req, res) => {
   try {
-    console.log(`📊 Admin ${req.user.email} requesting dashboard data`);
+    console.log(`📊 Admin ${req.user.unique_name} requesting dashboard data`);
 
     const today = new Date();
     const last30Days = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -273,7 +252,6 @@ router.get('/dashboard', adminAuth, adminRateLimit, async (req, res) => {
     const [
       totalQRs,
       linkedQRs,
-      totalUsers,
       activeDevices,
       totalCalls,
       emergencyCalls,
@@ -283,7 +261,6 @@ router.get('/dashboard', adminAuth, adminRateLimit, async (req, res) => {
     ] = await Promise.all([
       QRCode.countDocuments({ isActive: true }),
       QRCode.countDocuments({ status: 'linked' }),
-      User.countDocuments({ role: 'user', isActive: true }),
       Device.countDocuments({ status: 'active' }),
       Call.countDocuments(),
       Call.countDocuments({ 'callerInfo.emergencyType': { $ne: 'general' } }),
@@ -292,7 +269,6 @@ router.get('/dashboard', adminAuth, adminRateLimit, async (req, res) => {
       Call.find()
         .sort({ createdAt: -1 })
         .limit(10)
-        .populate('receiverId', 'name email')
     ]);
 
     const linkageRate = totalQRs > 0 ? (linkedQRs / totalQRs * 100).toFixed(2) : 0;
@@ -305,7 +281,7 @@ router.get('/dashboard', adminAuth, adminRateLimit, async (req, res) => {
           totalQRs,
           linkedQRs,
           linkageRate: `${linkageRate}%`,
-          totalUsers,
+          totalUsers: 'N/A',
           activeDevices
         },
         calls: {
@@ -335,58 +311,13 @@ router.get('/dashboard', adminAuth, adminRateLimit, async (req, res) => {
   }
 });
 
-// Get all users (ADMIN ONLY)
+// Get all users (ADMIN ONLY) - Now returns 410 Gone
 router.get('/users', adminAuth, adminRateLimit, async (req, res) => {
-  try {
-    const { page = 1, limit = 20, search, role } = req.query;
-
-    const filter = { isActive: true };
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } }
-      ];
-    }
-    if (role) filter.role = role;
-
-    const users = await User.find(filter, '-password')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const totalUsers = await User.countDocuments(filter);
-
-    // Get device counts for each user
-    const usersWithDevices = await Promise.all(
-      users.map(async (user) => {
-        const deviceCount = await Device.countDocuments({ 
-          'owner.userId': user.userId,
-          status: 'active'
-        });
-        return {
-          ...user.toObject(),
-          deviceCount
-        };
-      })
-    );
-
-    res.json({
-      success: true,
-      users: usersWithDevices,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(totalUsers / limit),
-        totalItems: totalUsers
-      }
-    });
-  } catch (error) {
-    console.error('❌ Get users error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get users',
-      code: 'GET_USERS_ERROR'
-    });
-  }
+  res.status(410).json({
+    success: false,
+    error: 'User listing is no longer available. User data is managed externally.',
+    code: 'USERS_GONE'
+  });
 });
 
 module.exports = router;

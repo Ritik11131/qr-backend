@@ -41,27 +41,10 @@ const validateQRLink = (req, res, next) => {
   const schema = Joi.object({
     qrId: Joi.string().required(),
     deviceInfo: Joi.object({
-      model: Joi.string().required(),
-      serialNumber: Joi.string().required(),
-      firmwareVersion: Joi.string().optional(),
-      manufacturer: Joi.string().optional()
+      vehicleNo: Joi.string().required(),
+      id: Joi.string().required(),
+      deviceId: Joi.string().optional()
     }).required(),
-    vehicleInfo: Joi.object({
-      type: Joi.string().valid('car', 'truck', 'motorcycle', 'van', 'bus', 'trailer', 'other').required(),
-      make: Joi.string().required(),
-      model: Joi.string().required(),
-      year: Joi.number().min(1900).max(new Date().getFullYear() + 2).optional(),
-      plateNumber: Joi.string().required(),
-      color: Joi.string().required(),
-      vin: Joi.string().optional()
-    }).required(),
-    emergencyInfo: Joi.object({
-      showOwnerName: Joi.boolean().default(true),
-      showVehiclePlate: Joi.boolean().default(true),
-      emergencyContact: Joi.string().optional(),
-      alternateContact: Joi.string().optional(),
-      specialInstructions: Joi.string().max(500).optional()
-    }).optional()
   });
 
   const { error } = schema.validate(req.body);
@@ -79,18 +62,31 @@ const validateCallInitiation = (req, res, next) => {
   const schema = Joi.object({
     qrId: Joi.string().required(),
     callType: Joi.string().valid('audio', 'video').default('audio'),
+    callMethod: Joi.string().valid('direct', 'masked').default('direct'),
     callerInfo: Joi.object({
       name: Joi.string().max(100).optional(),
-      phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).optional(),
+      phone: Joi.string().min(5).max(20).optional(),
       location: Joi.string().max(200).optional(),
       description: Joi.string().max(500).optional(),
-      additionalInfo: Joi.string().max(500).optional()
+      additionalInfo: Joi.string().max(500).optional(),
+      timestamp: Joi.date().iso().optional()
     }).optional(),
     emergencyType: Joi.string().valid('accident', 'breakdown', 'theft', 'medical', 'general').default('general'),
     urgencyLevel: Joi.string().valid('low', 'medium', 'high', 'critical').default('medium')
   });
 
-  const { error } = schema.validate(req.body);
+  // Custom validation for masked calling
+  const customValidation = (value, helpers) => {
+    if (value.callMethod === 'masked' && (!value.callerInfo || !value.callerInfo.phone)) {
+      return helpers.error('custom.maskedCallRequiresPhone');
+    }
+    return value;
+  };
+
+  const schemaWithCustom = schema.custom(customValidation).messages({
+    'custom.maskedCallRequiresPhone': 'Caller phone number is required for masked calling'
+  });
+  const { error } = schemaWithCustom.validate(req.body);
   if (error) {
     return res.status(400).json({
       error: 'Validation failed',
@@ -119,10 +115,38 @@ const validateBulkQRGeneration = (req, res, next) => {
   next();
 };
 
+// Device settings validation
+const validateDeviceSettings = (req, res, next) => {
+  const schema = Joi.object({
+    emergencyContacts: Joi.array().items(
+      Joi.object({
+        name: Joi.string().required(),
+        phone: Joi.string().pattern(/^\+?[1-9]\d{1,14}$/).required(),
+        relationship: Joi.string().required(),
+        priority: Joi.number().integer().min(1).max(10).required()
+      })
+    ).max(5).optional(),
+    autoAnswer: Joi.boolean().optional(),
+    allowAnonymousCalls: Joi.boolean().optional(),
+    callMethods: Joi.array().items(
+      Joi.string().valid('direct', 'masked')
+    ).optional()
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: error.details.map(d => d.message)
+    });
+  }
+  next();
+};
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
   validateQRLink,
   validateCallInitiation,
+  validateDeviceSettings,
   validateBulkQRGeneration
 };

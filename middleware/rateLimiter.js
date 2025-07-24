@@ -1,24 +1,33 @@
 const rateLimit = require('express-rate-limit');
+const config = require('../config/app');
 
+// Get rate limiting configuration
+const rateLimitConfig = config.get('rateLimiting');
 // General rate limiter
 const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: rateLimitConfig.global.windowMs,
+  max: rateLimitConfig.global.max,
   message: {
     error: 'Too many requests from this IP, please try again later.',
-    retryAfter: '15 minutes'
+    retryAfter: `${Math.ceil(rateLimitConfig.global.windowMs / 60000)} minutes`,
+    code: 'RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Use user ID if authenticated, otherwise IP
+    return req.user?.user_id || req.ip;
+  }
 });
 
 // Auth endpoints rate limiter (stricter)
 const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  windowMs: rateLimitConfig.auth.windowMs,
+  max: rateLimitConfig.auth.max,
   message: {
     error: 'Too many authentication attempts, please try again later.',
-    retryAfter: '15 minutes'
+    retryAfter: `${Math.ceil(rateLimitConfig.auth.windowMs / 60000)} minutes`,
+    code: 'AUTH_RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -26,23 +35,30 @@ const authRateLimit = rateLimit({
 
 // Call endpoints rate limiter
 const callRateLimit = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 10, // limit each IP to 10 call attempts per minute
+  windowMs: rateLimitConfig.calls.windowMs,
+  max: rateLimitConfig.calls.max,
   message: {
     error: 'Too many call attempts, please try again later.',
-    retryAfter: '1 minute'
+    retryAfter: `${Math.ceil(rateLimitConfig.calls.windowMs / 60000)} minutes`,
+    code: 'CALL_RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    // For calls, use a combination of IP and QR ID if available
+    const qrId = req.body?.qrId || req.params?.qrId;
+    return qrId ? `${req.ip}:${qrId}` : req.ip;
+  }
 });
 
 // Admin endpoints rate limiter
 const adminRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // limit each IP to 50 admin requests per windowMs
+  windowMs: rateLimitConfig.admin.windowMs,
+  max: rateLimitConfig.admin.max,
   message: {
     error: 'Too many admin requests, please try again later.',
-    retryAfter: '15 minutes'
+    retryAfter: `${Math.ceil(rateLimitConfig.admin.windowMs / 60000)} minutes`,
+    code: 'ADMIN_RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -50,14 +66,19 @@ const adminRateLimit = rateLimit({
 
 // Global rate limiter (very permissive)
 const globalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  windowMs: rateLimitConfig.global.windowMs,
+  max: rateLimitConfig.global.max * 10, // More permissive for global
   message: {
     error: 'Rate limit exceeded, please try again later.',
-    retryAfter: '15 minutes'
+    retryAfter: `${Math.ceil(rateLimitConfig.global.windowMs / 60000)} minutes`,
+    code: 'GLOBAL_RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health checks
+    return req.path === '/health' || req.path === '/api';
+  }
 });
 
 module.exports = {
