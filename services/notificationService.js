@@ -46,6 +46,7 @@ if (!admin.apps.length) {
     });
 
     console.log('✅ Firebase Admin SDK initialized successfully');
+    checkTimeSync();
   } catch (error) {
     console.error('❌ Firebase initialization error:', error.message);
     
